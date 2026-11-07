@@ -1,0 +1,39 @@
+{
+ "preview_data": [
+  {
+   "id": "Q1",
+   "category": "Security",
+   "question": "Do you have an API?",
+   "answer": "Answer to Do you have an API? [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {}
+  },
+  {
+   "id": "Q10",
+   "category": "Product",
+   "question": "What is the CEO's shoe size?",
+   "answer": "I couldn't be able to find a corresponding answer. Please provide a human to answer the question!",
+   "sources": [],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {}
+  },
+  {
+   "id": "Q2",
+   "category": "Tech",
+   "question": "Do you encrypt data?",
+   "answer": "Answer to Do you encrypt data? [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {}
+  }
+ ],
+ "filename": "Answered_rfp.xlsx"
+}

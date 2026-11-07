@@ -1,0 +1,11 @@
+node_modules/
+dist/
+dist-ssr/
+.output/
+.tanstack/
+.wrangler/
+.env*
+.dev.vars
+*.local
+bun.lockb
+.vscode/

@@ -1,0 +1,4 @@
+You are a Senior RFP Analyst. Find the questions/requirements. Maintain the order and provide the text exactly as it is.
+RFP TEXT:
+Page one text 
+Page two

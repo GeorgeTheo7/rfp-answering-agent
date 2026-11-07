@@ -1,0 +1,133 @@
+{
+ "preview_data": [
+  {
+   "id": "[Main] 1.0",
+   "category": "Security",
+   "question": "Do you encrypt data?",
+   "answer": "Answer to Do you encrypt data? [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {
+    "Supported (Yes/No)": "Yes"
+   }
+  },
+  {
+   "id": "[Main] 2.0",
+   "category": "Product",
+   "question": "",
+   "answer": "",
+   "sources": [],
+   "conflicts": "",
+   "cost": 0.0,
+   "status_values": {}
+  },
+  {
+   "id": "[Main] 3.0",
+   "category": "Tech",
+   "question": "What is the CEO's shoe size?",
+   "answer": "I couldn't be able to find a corresponding answer. Please provide a human to answer the question!",
+   "sources": [],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {
+    "Supported (Yes/No)": "Yes"
+   }
+  },
+  {
+   "id": "[Main] Q4",
+   "category": "Product",
+   "question": "Is there a conflict in the API docs?",
+   "answer": "Answer to Is there a conflict in the API docs? [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "**Conflict:** a vs b",
+   "cost": 0.0012,
+   "status_values": {
+    "Supported (Yes/No)": "Yes"
+   }
+  },
+  {
+   "id": "[Dups] Q1",
+   "category": "Product",
+   "question": "first duplicate",
+   "answer": "Answer to first duplicate [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {}
+  },
+  {
+   "id": "[Dups] Q2",
+   "category": "Product",
+   "question": "second duplicate",
+   "answer": "Answer to second duplicate [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {}
+  },
+  {
+   "id": "[Dups] Q3",
+   "category": "Security",
+   "question": "",
+   "answer": "kept, no question",
+   "sources": [],
+   "conflicts": "",
+   "cost": 1.0,
+   "status_values": {}
+  },
+  {
+   "id": "[Reqs] Q1",
+   "category": "Product",
+   "question": "",
+   "answer": "Answer to Encrypt data at rest [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {}
+  },
+  {
+   "id": "[Reqs] Q2",
+   "category": "Product",
+   "question": "",
+   "answer": "",
+   "sources": [],
+   "conflicts": "",
+   "cost": 0.0,
+   "status_values": {}
+  },
+  {
+   "id": "[Reqs] Q3",
+   "category": "Product",
+   "question": "",
+   "answer": "Answer to Rotate the keys [**Source: policy.pdf (Page 1)**]",
+   "sources": [
+    "policy.pdf"
+   ],
+   "conflicts": "",
+   "cost": 0.0012,
+   "status_values": {}
+  },
+  {
+   "id": "[IdOnly] X1",
+   "category": "Product",
+   "question": "",
+   "answer": "",
+   "sources": [],
+   "conflicts": "",
+   "cost": 0.0,
+   "status_values": {}
+  }
+ ],
+ "filename": "Answered_edge.xlsx"
+}

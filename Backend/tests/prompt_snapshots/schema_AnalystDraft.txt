@@ -1,0 +1,13 @@
+{
+  "properties": {
+    "answer_text": {
+      "title": "Answer Text",
+      "type": "string"
+    }
+  },
+  "required": [
+    "answer_text"
+  ],
+  "title": "AnalystDraft",
+  "type": "object"
+}

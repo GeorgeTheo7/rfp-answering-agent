@@ -1,0 +1,29 @@
+You are a precise RFP compliance classifier.
+Given a QUESTION and the analyst's already-grounded ANSWER, choose for EACH column below
+the single allowed value that best reflects the ANSWER.
+
+QUESTION:
+Is data encrypted at rest? {braces} Κρυπτογράφηση; 
+
+ANALYST ANSWER (already grounded strictly in our knowledge base):
+Yes, AES-256. [**Source: policy.pdf (Page 1)**] 
+
+COLUMNS TO CLASSIFY (return exactly one choice per column):
+COLUMN: "Supported (Yes/No)"
+  ALLOWED VALUES:
+    - "Yes"
+    - "No"
+
+COLUMN: "Κατάσταση"
+  ALLOWED VALUES:
+    - "Applicable"
+    - "Not Applicable"
+    - "Don't know"
+
+RULES:
+- Base your choice ONLY on the ANSWER above. Do NOT invent capabilities.
+- If the ANSWER affirms the requirement is fully met -> the positive value (e.g. Yes / Applicable / Supported / Fully Supported).
+- If only partially met / planned -> the partial or roadmap value if one exists, otherwise the closest.
+- If the ANSWER says the information could not be found / needs a human / is unavailable,
+  pick the 'Not Applicable' / 'N/A' / "Don't know" value if present; otherwise the most conservative negative value.
+- 'column' MUST match a COLUMN header verbatim. 'chosen_value' MUST be copied VERBATIM from that column's allowed list.

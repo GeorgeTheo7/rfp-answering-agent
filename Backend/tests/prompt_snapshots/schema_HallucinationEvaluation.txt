@@ -1,0 +1,26 @@
+{
+  "properties": {
+    "reasoning": {
+      "description": "Check each claim in the ANSWER against the CONTEXT, briefly.",
+      "title": "Reasoning",
+      "type": "string"
+    },
+    "has_hallucination": {
+      "description": "True if the answer contains information, procedures,assumption or locations NOT explicitly stated in the Context.",
+      "title": "Has Hallucination",
+      "type": "boolean"
+    },
+    "feedback": {
+      "description": "If has_hallucination=True, explain exactly what was fabricated so the Analyst can fix it. If False, leave it blank.",
+      "title": "Feedback",
+      "type": "string"
+    }
+  },
+  "required": [
+    "reasoning",
+    "has_hallucination",
+    "feedback"
+  ],
+  "title": "HallucinationEvaluation",
+  "type": "object"
+}

@@ -1,0 +1,4 @@
+CITATION ERROR: These citations do not match any retrieved source: other.pdf (Page 3); past.xlsx (Row 8).
+Every claim MUST cite one of these exact labels from the '--- SOURCE: ---' headers, as [**Source: <label>**]. Remove any claim you cannot cite with one of them:
+- policy.pdf (Page 1)
+- past.xlsx - Sheet1 (Row 7)

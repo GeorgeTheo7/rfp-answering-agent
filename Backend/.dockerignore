@@ -1,0 +1,16 @@
+data/
+chroma_db*/
+__pycache__/
+**/__pycache__/
+.pytest_cache/
+.ruff_cache/
+venv/
+.venv/
+env/
+.env
+*.env
+*.pdf
+*.xlsx
+*.xlsm
+*.xls
+tests/

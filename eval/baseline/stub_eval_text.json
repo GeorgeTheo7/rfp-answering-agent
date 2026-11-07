@@ -1,0 +1,30 @@
+{
+ "results": [
+  {
+   "id": "1.0",
+   "question": "Do you encrypt data?",
+   "expected": "Yes, AES-256",
+   "generated": "Answer to Do you encrypt data? [**Source: policy.pdf (Page 1)**]",
+   "score": 12,
+   "reasoning": "judged Do you encrypt data?"
+  },
+  {
+   "id": "3.0",
+   "question": "What is the CEO's shoe size?",
+   "expected": "I couldn't be able to find a corresponding answer. Please provide a human to answer the question!",
+   "generated": "I couldn't be able to find a corresponding answer. Please provide a human to answer the question!",
+   "score": 97,
+   "reasoning": "judged What is the CEO's shoe size?"
+  },
+  {
+   "id": "",
+   "question": "Do you have MFA?",
+   "expected": "Yes",
+   "generated": "Answer to Do you have MFA? [**Source: policy.pdf (Page 1)**]",
+   "score": 3,
+   "reasoning": "judged Do you have MFA?"
+  }
+ ],
+ "overall_accuracy": 8,
+ "filename": "Evaluated_e1.xlsx"
+}

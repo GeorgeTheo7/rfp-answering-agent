@@ -1,0 +1,16 @@
+services:
+  backend:
+    build: ./Backend
+    ports:
+      - "8000:8000"
+    env_file: .env
+    volumes:
+      - ./Backend/data:/app/data:ro
+      - ./Backend/chroma_db:/app/chroma_db
+
+  frontend:
+    build: ./Frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - backend

@@ -1,0 +1,22 @@
+{
+ "results": [
+  {
+   "id": "C1",
+   "question": "Do you encrypt data?",
+   "expected": "Yes",
+   "generated": "Answer to Do you encrypt data? [**Source: policy.pdf (Page 1)**]",
+   "score": 100,
+   "reasoning": "Categorical match: generated 'Yes' == expected 'Yes'."
+  },
+  {
+   "id": "C2",
+   "question": "Do you have MFA?",
+   "expected": "No",
+   "generated": "Answer to Do you have MFA? [**Source: policy.pdf (Page 1)**]",
+   "score": 0,
+   "reasoning": "Categorical mismatch: generated 'Yes' vs expected 'No'."
+  }
+ ],
+ "overall_accuracy": 50,
+ "filename": "Evaluated_e2.xlsx"
+}

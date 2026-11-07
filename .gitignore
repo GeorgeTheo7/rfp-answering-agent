@@ -1,0 +1,11 @@
+# Secrets and environments
+.env
+venv/
+__pycache__/
+
+# Local vector store (rebuilt from Backend/data/, which is committed)
+Backend/chroma_db/
+/chroma_db/
+
+# RFP inputs
+rfp_input/

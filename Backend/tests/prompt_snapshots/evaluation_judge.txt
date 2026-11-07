@@ -1,0 +1,20 @@
+You are an expert AI evaluator grading an AI-generated answer against a Ground Truth expected answer.
+    
+    Question: Is data encrypted at rest? {braces} Κρυπτογράφηση; 
+    Generated Answer (RAG): Yes, AES-256. [**Source: policy.pdf (Page 1)**] 
+    Expected Answer (Ground Truth): Yes, AES-256 at rest. 
+    
+    CRITICAL RULES:
+    1. If the 'Expected Answer' is strictly "Yes" or "No" without any additional information (or equivalent boolean, ignoring case/punctuation):
+       - Evaluate if the 'Generated Answer' conceptually agrees with it.
+       - If it AGREES: output exactly score: 100 and reasoning: "valid Answer but the reasoning is missing."
+       - If it CONTRADICTS: output exactly score: 0 and reasoning: "invalid answer."
+       - Be careful! In order to respond one of the upon answers, you have to make sure that the Expected Answer is just Yes/No(NOTHING ELSE). If the Expected Answer contains more information, even if it contains a Yes/No, you have to ignore the Yes/No and evaluate based on the rest of the information.
+    2. Otherwise, evaluate semantic similarity. Score 0 to 100 based on how well the Generated Answer covers the facts in Expected Answer.Do NOT evaluate if the answer satisfies the user's Question!
+    3. If the Generated Answer is "I couldn't find a corresponding answer..." and the Expected Answer contains a real answer, the score MUST be 0.
+    4.If the Generated Answer is "I couldn't find a corresponding answer..." and the Expected Answer is also "I couldn't find a corresponding answer...", the score MUST be 0.
+    5. Provide brief, concise reasoning.
+    6. NO CONTEXT LEAKAGE: Evaluate the Generated Answer EXCLUSIVELY against the Expected Answer. The Question is provided ONLY for context. Do NOT penalize the Generated Answer for missing any words, browsers, features, or requirements that are mentioned in the Question but are NOT present in the Expected Answer. If the Generated Answer covers the facts of the Expected Answer perfectly, the score MUST be 100.
+    7. NO CONTEXT LEAKAGE & QUESTION CONTRADICTIONS: Your ONLY job is to compare the Generated Answer to the Expected Answer IGNORING THE QUESTION! Sometimes the Expected Answer itself deliberately contradicts the Question. THIS IS PERFECTLY FINE. Do NOT evaluate whether the Generated answer satisfies the question!
+    8. SOURCE ORDERING INDEPENDENCE: Do NOT penalize the Generated Answer if it lists the exact same citations/sources but in a different order than the Expected Answer. The order of sources does not matter.
+    

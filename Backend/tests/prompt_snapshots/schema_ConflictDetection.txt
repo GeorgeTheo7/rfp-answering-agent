@@ -1,0 +1,26 @@
+{
+  "properties": {
+    "reasoning": {
+      "description": "Step-by-step analysis: Check if the documents state MUTUALLY EXCLUSIVE facts for the specific question. Differences in terminology or complementary info are NOT conflicts.",
+      "title": "Reasoning",
+      "type": "string"
+    },
+    "has_conflict": {
+      "description": "True ONLY if a strict, factual contradiction was found (e.g., Source A says 'Yes' and Source B says 'No', or SLAs are different numbers).",
+      "title": "Has Conflict",
+      "type": "boolean"
+    },
+    "conflict_details": {
+      "description": "If has_conflict=True, write the result STRICTLY as follows:\n- [SOURCE: Exact Source Name 1]: 'Exact Snippet'\n- [SOURCE: Exact Source Name 2]: 'Exact Snippet'\n*Reasoning:* Brief explanation of the conflict.\n\nIf has_conflict=False, leave it completely blank.",
+      "title": "Conflict Details",
+      "type": "string"
+    }
+  },
+  "required": [
+    "reasoning",
+    "has_conflict",
+    "conflict_details"
+  ],
+  "title": "ConflictDetection",
+  "type": "object"
+}

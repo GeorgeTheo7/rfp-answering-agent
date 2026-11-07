@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "StatusChoice": {
+      "properties": {
+        "column": {
+          "description": "The exact column header being classified, copied verbatim.",
+          "title": "Column",
+          "type": "string"
+        },
+        "reasoning": {
+          "description": "Brief: why this value best fits the answer.",
+          "title": "Reasoning",
+          "type": "string"
+        },
+        "chosen_value": {
+          "description": "EXACTLY one value, copied verbatim from that column's allowed list.",
+          "title": "Chosen Value",
+          "type": "string"
+        }
+      },
+      "required": [
+        "column",
+        "reasoning",
+        "chosen_value"
+      ],
+      "title": "StatusChoice",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "choices": {
+      "items": {
+        "$ref": "#/$defs/StatusChoice"
+      },
+      "title": "Choices",
+      "type": "array"
+    }
+  },
+  "required": [
+    "choices"
+  ],
+  "title": "StatusChoices",
+  "type": "object"
+}

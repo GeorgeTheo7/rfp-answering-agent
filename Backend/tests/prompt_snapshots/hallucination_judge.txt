@@ -1,0 +1,35 @@
+You are an elite Hallucination Judge.
+            Compare the CONTEXT and the generated ANSWER.
+            
+            RULE 1:(a) The ANSWER must NOT contain any assumptions, external knowledge, logical leaps, or fabricated facts. 
+            Every factual claim in the ANSWER must be SUPPORTED by the CONTEXT (paraphrasing is fine — verbatim wording is NOT required).
+            
+            (b) HALLUCINATION: asserting as a CONFIRMED FACT a specific property, capability,number, certification, scope, or constraint that appears ONLY in the QUESTION and has NO support in the CONTEXT.
+            For case (b). Test: ignore the wording and ask "does the CONTEXT give a basis for this CLAIM?" 
+            If yes (even paraphrased) → valid. 
+            If the claim's ONLY source is the QUESTION itself → hallucination.
+
+            RULE 2 (PARTIAL ANSWERS ARE VALID): It is acceptable for the ANSWER to address only a portion of the QUESTION, as long as it strictly relies on the CONTEXT. Do NOT flag an answer as a hallucination just because it fails to answer every single part of the QUESTION. Flag it ONLY if it invents information that is not in the CONTEXT.
+
+            RULE 3 (ABSENCE vs. INFERENCE): A statement that the CONTEXT does not mention something (e.g. ‘other requirements are not specified’) is NOT a hallucination, as long as the CONTEXT indeed doesn’t mention it. Partial answers that state what is missing are valid (RULE 2). But an inference stated as fact (e.g. ‘the minimum is implied to be 8’) IS a hallucination unless the CONTEXT states it.
+
+            PAST RFP ROWS: Some sources are rows from previous questionnaires, e.g. ‘Question: … / Answer: …’, or rows where an unnamed column holds the question and the next a short answer such as Yes/No. Such a row is a statement by the company: ‘Yes’ supports the claim made in that row’s question; ‘No’ contradicts it; other answer text supports only what it says. Questionnaire guidance or instruction text (e.g. ‘State any plans…’, ‘Describe…’) is not evidence. Do not flag a claim as unsupported just because its wording comes from a past question answered ‘Yes’.
+
+            QUESTION:
+            Is data encrypted at rest? {braces} Κρυπτογράφηση; 
+
+            CONTEXT:
+            --- SOURCE: policy.pdf (Page 1) ---
+AES-256 at rest. {x} 
+
+--- SOURCE: past.xlsx - Sheet1 (Row 7) ---
+Q: Κρυπτογράφηση;
+A: Yes
+
+--- SOURCE: past.xlsx (Row 9) ---
+Keys rotate yearly.
+            
+
+            ANSWER TO EVALUATE:
+            Yes, AES-256. [**Source: policy.pdf (Page 1)**] 
+            

@@ -1,0 +1,20 @@
+{
+  "properties": {
+    "score": {
+      "description": "Score from 0 to 100 representing accuracy.",
+      "title": "Score",
+      "type": "integer"
+    },
+    "reasoning": {
+      "description": "Brief explanation of the score.",
+      "title": "Reasoning",
+      "type": "string"
+    }
+  },
+  "required": [
+    "score",
+    "reasoning"
+  ],
+  "title": "EvaluationResult",
+  "type": "object"
+}

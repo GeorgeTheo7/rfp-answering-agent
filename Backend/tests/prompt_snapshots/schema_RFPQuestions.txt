@@ -1,0 +1,44 @@
+{
+  "$defs": {
+    "ExtractedQuestion": {
+      "properties": {
+        "id": {
+          "description": "A unique ID, e.g., 'Q1', '1a'",
+          "title": "Id",
+          "type": "string"
+        },
+        "text": {
+          "description": "The complete exact text of the question/requirement from start to finish.",
+          "title": "Text",
+          "type": "string"
+        },
+        "category": {
+          "description": "Must be ONE of the following: 'Security', 'Tech', 'Product'",
+          "title": "Category",
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "text",
+        "category"
+      ],
+      "title": "ExtractedQuestion",
+      "type": "object"
+    }
+  },
+  "properties": {
+    "questions": {
+      "items": {
+        "$ref": "#/$defs/ExtractedQuestion"
+      },
+      "title": "Questions",
+      "type": "array"
+    }
+  },
+  "required": [
+    "questions"
+  ],
+  "title": "RFPQuestions",
+  "type": "object"
+}

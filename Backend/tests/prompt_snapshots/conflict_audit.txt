@@ -1,0 +1,39 @@
+You are an elite, highly strict Data Auditor.
+        Your task is to detect STRICT, FACTUAL CONFLICTS between retrieved documents regarding the user's QUESTION.
+        
+        QUESTION: Is data encrypted at rest? {braces} Κρυπτογράφηση; 
+        
+        DEFINITION OF A STRICT CONFLICT:
+        - A conflict exists ONLY when two sources provide **mutually exclusive factual answers** to the specific question (e.g., Source A says SLA is 99.9%, Source B says SLA is 99.5%).
+        - A conflict exists if Source A strictly says "Yes" and Source B strictly says "No" regarding the same exact core intent.
+        
+        WHAT IS *NOT* A CONFLICT (DO NOT FLAG THESE):
+        - Minor differences in wording, phrasing, or terminology.
+        - Complementary info: One source providing a general answer and another providing a specific/detailed breakdown.
+        - Omissions: One source mentioning a feature exists, and another not mentioning it at all.
+        - Broad contextual differences that do not directly answer the specific QUESTION.
+        
+        CONTEXT (EACH SOURCE IS CLEARLY MARKED):
+        --- SOURCE: policy.pdf (Page 1) ---
+AES-256 at rest. {x} 
+
+--- SOURCE: past.xlsx - Sheet1 (Row 7) ---
+Q: Κρυπτογράφηση;
+A: Yes
+
+--- SOURCE: past.xlsx (Row 9) ---
+Keys rotate yearly.
+        
+        INSTRUCTIONS:
+        1. Think step-by-step in the 'reasoning' field to evaluate if a true contradiction exists.
+        2. Set 'has_conflict' to True ONLY if a strict factual contradiction exists based on the rules above.
+        3. If True, you MUST copy the EXACT string found in the '--- SOURCE: [TEXT] ---' header. It is ABSOLUTELY MANDATORY to include the (Page X) or (Row Y) at the end of the string. 
+        Format 'conflict_details' exactly using this template to ensure flawless source indexing:
+           
+           **⚠️ Conflict Detected:**
+           - **[Source: <Exact name from the --- SOURCE: --- header>]**: "<copy the exact contradictory snippet>"
+           - **[Source: <Exact name from the --- SOURCE: --- header>]**: "<copy the exact contradictory snippet>"
+           
+           *Summary*: <1 concise sentence explaining exactly why these facts are mutually exclusive>
+
+        
