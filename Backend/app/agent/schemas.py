@@ -121,7 +121,7 @@ class QuestionState(TypedDict, total=False):
     question: Question
     selected_model: str
     analyst: RFPAnalyst
-    context_text: str            # MMR-retrieved sources for draft + judge
+    context_text: str            # retrieved sources for draft + judge
     allowed_sources: List[SourceRef]  # sources in context_text, for citation validation
     attempt: int                 # drafts made so far
     feedback: str                # judge feedback for the next draft

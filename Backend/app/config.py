@@ -19,10 +19,12 @@ OLD_FAIL_MSG_PREFIX = "I couldn't be able to find a corresponding answer"
 # Draft loop (citation check + judge share it): up to MAX_REVISIONS + 1 drafts, then FAIL_MSG.
 MAX_REVISIONS = 2
 
-# Draft retriever (MMR). Why lambda 0.7: docs/SPEC.md decision 4.
+# Draft retriever: "similarity" (default) or "mmr" (then RETRIEVAL_FETCH_K and MMR_LAMBDA apply).
+# Why similarity: docs/SPEC.md decision 4 (eval/retrieval_eval.py fact recall 43/46 vs 40/46 for MMR λ=0.7).
+RETRIEVAL_SEARCH_TYPE = "similarity"
 RETRIEVAL_K = 5
-RETRIEVAL_FETCH_K = 20
-MMR_LAMBDA = 0.7
+RETRIEVAL_FETCH_K = 20  # mmr only
+MMR_LAMBDA = 0.7  # mmr only
 
 # Extra ChatOpenAI settings per model: the one place for them, used by every agent LLM call (model selected
 # in the UI) and by the evaluator judge. A model must be listed here to be used.

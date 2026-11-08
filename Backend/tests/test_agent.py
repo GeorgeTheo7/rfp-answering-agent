@@ -3,6 +3,8 @@ from types import SimpleNamespace
 from app.agent import nodes
 from app.agent.nodes import _canonical_value
 from app.agent.schemas import AnalystDraft, HallucinationEvaluation, Question, company_analysts
+import pytest
+
 from app.config import MMR_LAMBDA, RETRIEVAL_FETCH_K, RETRIEVAL_K
 
 ALLOWED = ["Yes", "No", "Partially Supported"]
@@ -25,8 +27,14 @@ def test_empty_or_none_returns_empty():
     assert _canonical_value(None, ALLOWED) == ""
 
 
-def test_retrieve_node_uses_config_settings(monkeypatch):
+@pytest.mark.parametrize("search_type,expected", [
+    ("similarity", {"search_type": "similarity", "search_kwargs": {"k": RETRIEVAL_K}}),
+    ("mmr", {"search_type": "mmr",
+             "search_kwargs": {"k": RETRIEVAL_K, "fetch_k": RETRIEVAL_FETCH_K, "lambda_mult": MMR_LAMBDA}}),
+])
+def test_retrieve_node_uses_config_settings(monkeypatch, search_type, expected):
     calls = []
+    monkeypatch.setattr(nodes, "RETRIEVAL_SEARCH_TYPE", search_type)
 
     class FakeStore:
         def as_retriever(self, **kwargs):
@@ -37,10 +45,15 @@ def test_retrieve_node_uses_config_settings(monkeypatch):
 
     nodes.retrieve_node({"question": SimpleNamespace(id="Q1", text="q")})
 
-    assert calls == [{
-        "search_type": "mmr",
-        "search_kwargs": {"k": RETRIEVAL_K, "fetch_k": RETRIEVAL_FETCH_K, "lambda_mult": MMR_LAMBDA},
-    }]
+    assert calls == [expected]
+
+
+def test_default_retriever_is_similarity_and_unknown_type_is_rejected(monkeypatch):
+    from app.config import RETRIEVAL_SEARCH_TYPE
+    assert RETRIEVAL_SEARCH_TYPE == "similarity"
+    monkeypatch.setattr(nodes, "RETRIEVAL_SEARCH_TYPE", "hybrid")
+    with pytest.raises(ValueError, match="RETRIEVAL_SEARCH_TYPE"):
+        nodes.retriever_settings()
 
 
 def test_hallucination_judge_reasons_before_verdict():

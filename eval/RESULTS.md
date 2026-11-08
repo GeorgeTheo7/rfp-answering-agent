@@ -59,3 +59,21 @@ Noise:
 Judge selection:
 - gpt-4o-mini-2024-07-18 misread `generated_verdict` as "agrees with expected": 8 false caps on the same 52 answers (EV-02, 12, 16, 18, 20, 32, 33, 52). gpt-6-luna with the old field still did this on EV-16 and EV-40; the clarified field fixed it.
 - Reverted earlier attempt: judge-prompt rules 9–10 (Yes/No conclusion, customer names) fixed EV-08 but wrongly zeroed 7 correct answers.
+
+## 2026-11-08 retrieval fact recall (eval_set_v2)
+`eval/retrieval_eval.py`, no LLM calls: is each question's expected fact (`eval/retrieval_facts.json`) in the retrieved chunks? 46 answerable questions (29 dev / 17 held_out), demo KB 241 chunks (191 PDF, 50 past-RFP rows). Retriever switched from (h) to similarity k=5 (a) after this.
+
+| Config | Recall | dev (29) | held_out (17) | Past-RFP chunks / question | Misses |
+|---|---|---|---|---|---|
+| a: current config (similarity k=5) | 43/46 | 27/29 | 16/17 | 1.9 | EV-08, EV-13, EV-46 |
+| b: similarity k=5 | 43/46 | 27/29 | 16/17 | 1.9 | EV-08, EV-13, EV-46 |
+| c: similarity k=8 | 44/46 | 27/29 | 17/17 | 2.7 | EV-08, EV-13 |
+| d: MMR k=8 fetch_k=20 λ=0.7 | 43/46 | 27/29 | 16/17 | 3.0 | EV-08, EV-13, EV-46 |
+| e: MMR k=5 fetch_k=20 λ=0.9 | 41/46 | 26/29 | 15/17 | 2.0 | EV-08, EV-13, EV-32, EV-45, EV-46 |
+| f: quota 4 policy PDF + 2 past-RFP | 43/46 | 26/29 | 17/17 | 2.0 | EV-08, EV-13, EV-32 |
+| g: similarity k=6 | 43/46 | 27/29 | 16/17 | 2.2 | EV-08, EV-13, EV-46 |
+| h: MMR k=5 fetch_k=20 λ=0.7 (previous default) | 40/46 | 25/29 | 15/17 | 1.9 | EV-08, EV-11, EV-13, EV-32, EV-45, EV-46 |
+
+- MMR λ=0.7 dropped fact chunks at similarity ranks 4–5 (EV-11, EV-32, EV-45).
+- Missed by all: EV-13 (hosting sentence at similarity rank 41: intro-heavy chunk, split mid-sentence), EV-08 (needs two separate LC-POL-005 chunks).
+- Recall is necessary, not sufficient: answer scores with similarity k=5 not yet measured.

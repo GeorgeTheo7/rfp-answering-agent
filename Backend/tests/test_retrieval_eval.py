@@ -65,8 +65,12 @@ def test_evaluate_and_report_recall_splits_past_rfp_counts_and_misses():
     assert "| sim2 | 1/2 | 1/1 | 0/1 | 1.5 | EV-45 |" in text
 
 
-def test_current_config_matches_retrieve_node_settings():
-    store = FakeStore({"q": [_doc("a"), _doc("b")]})
-    retrieval_eval.CONFIGS[next(iter(retrieval_eval.CONFIGS))](store, "q")
+def test_current_config_follows_retrieval_search_type(monkeypatch):
     from app.config import MMR_LAMBDA, RETRIEVAL_K
-    assert store.calls == [("mmr", RETRIEVAL_K, MMR_LAMBDA)]
+    current = retrieval_eval.CONFIGS[next(iter(retrieval_eval.CONFIGS))]
+    store = FakeStore({"q": [_doc("a"), _doc("b")]})
+    current(store, "q")
+    assert store.calls == [("sim", RETRIEVAL_K, None)]  # default: similarity
+    monkeypatch.setattr(retrieval_eval, "RETRIEVAL_SEARCH_TYPE", "mmr")
+    current(store, "q")
+    assert store.calls[-1] == ("mmr", RETRIEVAL_K, MMR_LAMBDA)

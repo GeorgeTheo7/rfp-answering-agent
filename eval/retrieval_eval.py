@@ -15,17 +15,26 @@ import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "Backend"))
-from app.config import MMR_LAMBDA, RETRIEVAL_FETCH_K, RETRIEVAL_K
+from app.config import MMR_LAMBDA, RETRIEVAL_FETCH_K, RETRIEVAL_K, RETRIEVAL_SEARCH_TYPE
 
 EVAL_SET = os.path.join(ROOT, "eval", "eval_set_v2.xlsx")
 FACTS = os.path.join(ROOT, "eval", "retrieval_facts.json")
 SPLITS = ("dev", "held_out")
 NOT_EXCEL = {"file_type": {"$ne": "excel"}}
 
-# name -> (store, query vector) -> chunks. (a) is what retrieve_node does today.
+
+
+def current(store, vector):
+    """What retrieve_node does with the current config (see nodes.retriever_settings)."""
+    if RETRIEVAL_SEARCH_TYPE == "mmr":
+        return store.max_marginal_relevance_search_by_vector(
+            vector, k=RETRIEVAL_K, fetch_k=RETRIEVAL_FETCH_K, lambda_mult=MMR_LAMBDA)
+    return store.similarity_search_by_vector(vector, k=RETRIEVAL_K)
+
+
+# name -> (store, query vector) -> chunks.
 CONFIGS = {
-    f"a: MMR k={RETRIEVAL_K} fetch_k={RETRIEVAL_FETCH_K} λ={MMR_LAMBDA} (current)": lambda s, v: s.max_marginal_relevance_search_by_vector(
-        v, k=RETRIEVAL_K, fetch_k=RETRIEVAL_FETCH_K, lambda_mult=MMR_LAMBDA),
+    f"a: current config ({RETRIEVAL_SEARCH_TYPE} k={RETRIEVAL_K})": current,
     "b: similarity k=5": lambda s, v: s.similarity_search_by_vector(v, k=5),
     "c: similarity k=8": lambda s, v: s.similarity_search_by_vector(v, k=8),
     "d: MMR k=8 fetch_k=20 λ=0.7": lambda s, v: s.max_marginal_relevance_search_by_vector(v, k=8, fetch_k=20, lambda_mult=0.7),
@@ -34,6 +43,8 @@ CONFIGS = {
         s.similarity_search_by_vector(v, k=4, filter=NOT_EXCEL)
         + s.similarity_search_by_vector(v, k=2, filter={"file_type": "excel"})),
     "g: similarity k=6 (same chunk count as f)": lambda s, v: s.similarity_search_by_vector(v, k=6),
+    "h: MMR k=5 fetch_k=20 λ=0.7 (previous default)": lambda s, v: s.max_marginal_relevance_search_by_vector(
+        v, k=5, fetch_k=20, lambda_mult=0.7),
 }
 
 

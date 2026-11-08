@@ -10,7 +10,7 @@ from langgraph.types import Send
 
 from app.config import (
     EXCEL_EXTENSIONS, FAIL_MSG, FAIL_MSG_PREFIX, MAX_REVISIONS, MMR_LAMBDA, MODEL_PRICING, MODEL_SETTINGS, OLD_FAIL_MSG_PREFIX,
-    RETRIEVAL_FETCH_K, RETRIEVAL_K,
+    RETRIEVAL_FETCH_K, RETRIEVAL_K, RETRIEVAL_SEARCH_TYPE,
 )
 from app.store import get_vectorstore
 from app.excel_io import detect_status_columns, find_question_column, is_id_header, read_sheets, resolve_id_column
@@ -159,15 +159,19 @@ def extract_questions_node(state: RFPGraphState):
 def _llm(state: QuestionState) -> ChatOpenAI:
     return chat_model(state["selected_model"], timeout=90)
 
+def retriever_settings() -> dict:
+    """as_retriever() arguments of the draft retriever, from RETRIEVAL_SEARCH_TYPE."""
+    if RETRIEVAL_SEARCH_TYPE == "similarity":
+        return {"search_type": "similarity", "search_kwargs": {"k": RETRIEVAL_K}}
+    if RETRIEVAL_SEARCH_TYPE == "mmr":
+        return {"search_type": "mmr",
+                "search_kwargs": {"k": RETRIEVAL_K, "fetch_k": RETRIEVAL_FETCH_K, "lambda_mult": MMR_LAMBDA}}
+    raise ValueError(f"RETRIEVAL_SEARCH_TYPE must be 'similarity' or 'mmr', not {RETRIEVAL_SEARCH_TYPE!r}")
+
 def retrieve_node(state: QuestionState):
     question = state["question"]
     print(f"--- [NODE] ANALYST & JUDGE: Answering {question.id} ---")
-    # MMR retriever for generating responses
-    retriever = get_vectorstore().as_retriever(
-        search_type="mmr",
-        search_kwargs={"k": RETRIEVAL_K, "fetch_k": RETRIEVAL_FETCH_K, "lambda_mult": MMR_LAMBDA},
-    )
-    docs = retriever.invoke(question.text)
+    docs = get_vectorstore().as_retriever(**retriever_settings()).invoke(question.text)
 
     context_parts, allowed_sources = [], []
     for doc in docs:
