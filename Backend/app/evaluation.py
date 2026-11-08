@@ -20,7 +20,11 @@ class EvaluationResult(BaseModel):
 class JudgeOutput(BaseModel):
     reasoning: str = Field(description="Brief explanation, written before the verdict and the score.")
     generated_verdict: Literal["yes", "no", "neither"] = Field(
-        description="Does the Generated Answer, on its own, mean yes, no, or neither? Judge the meaning, not the wording.")
+        description=(
+            "The Generated Answer's own yes/no reply to the Question, ignoring the Expected Answer entirely: "
+            "'yes' if it answers the Question with yes, 'no' if it answers with no, 'neither' if it gives no yes/no reply. "
+            "Judge the meaning, not the wording. This is NOT whether it agrees with the Expected Answer: "
+            "'No, X never happens' is 'no' even when the Expected Answer is also 'No'."))
     score: int = Field(description="Score from 0 to 100: how well the Generated Answer covers the facts in the Expected Answer.")
 
 VERDICT_CAP = 20
