@@ -297,7 +297,7 @@ async def evaluate_rfp_accuracy(file: UploadFile = File(...), model: str = Form(
                     df.at[index, exp_a_col] = expected_text
                 else:
                     # Semantic judge (as before)
-                    eval_result, eval_cost = run_llm_judge(q_text, generated_text, expected_text, model_name=model)
+                    eval_result, eval_cost = run_llm_judge(q_text, generated_text, expected_text)
                 
                 df.at[index, "LLM Score"] = eval_result.score
                 df.at[index, "LLM Reasoning"] = eval_result.reasoning

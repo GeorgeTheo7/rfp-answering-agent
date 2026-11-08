@@ -78,7 +78,7 @@ DataFrame removed from graph state; `report` returns `Answer` objects, `excel_io
 7. English comments, remove dead code (`retrieved_context`, `draft_answer`, `nest_asyncio`), `start.bat` (English, stop only own processes), README.
 
 ## Later
-- **Eval:** review eval set + add "answerable" column; fix evaluator not-found scoring; evaluator results show bare IDs and a `Q-n` fallback (display only); pin judge model; baseline v1 vs current ×3 runs (mean + spread); `golden_set_v1`.
+- **Eval:** review eval set + add "answerable" column; fix evaluator not-found scoring; evaluator results show bare IDs and a `Q-n` fallback (display only); ~~pin judge model~~ (done: `JUDGE_MODEL` in config); baseline v1 vs current ×3 runs (mean + spread); `golden_set_v1`.
 - **Agent:** intent check; Literal schema for dropdown values; validate conflict snippets in code; conflict audit reusing draft docs.
 - **Evaluator:** score rows whose expected answer is not-found instead of skipping them (evidence: the reverted rule 4 change dropped not-found from ~14 to ~2 with a flat score; ~10 non-answers were invisible).
 - **Citation coverage:** flag factual sentences without a citation (absence statements excepted; measure false alarms).

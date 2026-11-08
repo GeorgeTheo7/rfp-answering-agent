@@ -100,7 +100,7 @@ Both diagrams are generated from the compiled graphs with `get_graph().draw_merm
 **Known limitations.**
 - Expected answers are old agent outputs that nobody has reviewed (several rows are known to be wrong), so the score measures agreement with the agent's first version, not accuracy.
 - Rows with an expected "not found" are skipped, so the evaluator can't see an agent that answers questions it shouldn't.
-- One judge model, not pinned. The eval set is small.
+- Judge pinned to gpt-4o-mini-2024-07-18, temperature 0; one judge model only. The eval set is small.
 
 ## Engineering notes
 

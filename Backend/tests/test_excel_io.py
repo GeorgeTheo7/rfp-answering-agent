@@ -504,7 +504,7 @@ def test_evaluator_excludes_expected_not_found_rows_in_old_and_new_wording(tmp_p
     path = _save(wb, tmp_path, "rfp.xlsm")
     _, answers = _answer_all(path)
     # Only the real row scores 100: any not-found row counted would pull accuracy below 100.
-    monkeypatch.setattr(api, "run_llm_judge", lambda q, g, expected, model_name: (
+    monkeypatch.setattr(api, "run_llm_judge", lambda q, g, expected: (
         SimpleNamespace(score=100 if expected == "yes" else 0, reasoning="r"), 0.0))
 
     body = _post_with_answers("/api/rfp/evaluate", path, answers, monkeypatch).json()

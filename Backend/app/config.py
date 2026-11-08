@@ -24,9 +24,14 @@ RETRIEVAL_K = 5
 RETRIEVAL_FETCH_K = 20
 MMR_LAMBDA = 0.7
 
+# Evaluator judge only (the agent uses the model sent with the upload). Pinned snapshot so scores stay
+# comparable across runs.
+JUDGE_MODEL = "gpt-4o-mini-2024-07-18"
+
 # OpenAI prices ($ per 1,000,000 tokens): (input, output)
 MODEL_PRICING = {
     "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4o-mini-2024-07-18": (0.15, 0.60),
     "gpt-5-mini":  (0.25, 2.00),
 }
 

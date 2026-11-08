@@ -25,7 +25,7 @@ Backend: FastAPI + LangGraph (Python 3.12). Frontend: React/TanStack (Lovable-ge
 
 ## Map
 - `Backend/app/`: package; imports are `from app.x import ...` (run from `Backend/`). `data/`, `chroma_db/`, `tests/` stay in `Backend/`.
-- `Backend/app/config.py`: paths (BASE_DIR = Backend/, CHROMA_DIR, DATA_DIR), COLLECTION_NAME, EXCEL_EXTENSIONS, FAIL_MSG, OLD_FAIL_MSG_PREFIX, RETRIEVAL_K, RETRIEVAL_FETCH_K, MMR_LAMBDA, MODEL_PRICING, COST_DECIMALS. No side effects.
+- `Backend/app/config.py`: paths (BASE_DIR = Backend/, CHROMA_DIR, DATA_DIR), COLLECTION_NAME, EXCEL_EXTENSIONS, FAIL_MSG, OLD_FAIL_MSG_PREFIX, RETRIEVAL_K, RETRIEVAL_FETCH_K, MMR_LAMBDA, JUDGE_MODEL (evaluator judge only), MODEL_PRICING, COST_DECIMALS. No side effects.
 - `Backend/app/store.py`: lazy Chroma singleton, `get_vectorstore()`.
 - `Backend/app/main.py`: FastAPI app, lifespan (startup ingest of new files in data/), CORS, includes `api.router`.
 - `Backend/app/ingestion.py`: loaders, shared `ingest()` (per-file writes; failed write raises `IngestWriteError`), `ingest_local_directory`.

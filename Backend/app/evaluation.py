@@ -4,6 +4,7 @@ from langchain_community.callbacks.manager import get_openai_callback
 
 from app.agent.nodes import calculate_cost, _canonical_value
 from app.agent.prompts import evaluation_judge_prompt
+from app.config import JUDGE_MODEL
 
 # ==========================================
 # 6. LLM JUDGE (ACCURACY EVALUATOR)
@@ -12,15 +13,16 @@ class EvaluationResult(BaseModel):
     score: int = Field(description="Score from 0 to 100 representing accuracy.")
     reasoning: str = Field(description="Brief explanation of the score.")
 
-def run_llm_judge(question: str, generated_answer: str, expected_answer: str, model_name: str = "gpt-4o-mini"):
-    llm = ChatOpenAI(model=model_name, temperature=0, max_retries=5, timeout=60)
+def run_llm_judge(question: str, generated_answer: str, expected_answer: str):
+    """Always JUDGE_MODEL, never the agent's model."""
+    llm = ChatOpenAI(model=JUDGE_MODEL, temperature=0, max_retries=5, timeout=60)
     structured_llm = llm.with_structured_output(EvaluationResult)
     
     prompt = evaluation_judge_prompt(question, generated_answer, expected_answer)
     try:
         with get_openai_callback() as cb:
             result = structured_llm.invoke(prompt)
-            eval_cost = calculate_cost(model_name, cb)
+            eval_cost = calculate_cost(JUDGE_MODEL, cb)
                 
         return result, eval_cost
     except Exception as e:
