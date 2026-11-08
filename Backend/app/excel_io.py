@@ -13,6 +13,7 @@ from app.agent.schemas import Status
 from app.config import COST_DECIMALS, EXCEL_EXTENSIONS
 
 REVIEW_NOTE_COL = "Review note"  # only added when some answer has a note
+RUN_INFO_SHEET = "Run info"  # evaluated files: Field/Value rows (models, settings, time, commit)
 STATUS_FILLS = {Status.not_found: "FFC7CE", Status.error: "FFC7CE", Status.needs_review: "FFEB9C"}
 
 # Normalized header names of an ID column, highest priority first.
@@ -316,3 +317,29 @@ def parse_question_id(raw_id):
     if match:
         return match.group(1), match.group(2)
     return "RFP Responses", raw_id
+
+
+def write_run_info(wb, info: dict):
+    """Replaces the Run info sheet (last sheet) with one Field/Value row per item."""
+    if RUN_INFO_SHEET in wb.sheetnames:
+        del wb[RUN_INFO_SHEET]
+    ws = wb.create_sheet(RUN_INFO_SHEET)
+    ws.append(["Field", "Value"])
+    for field, value in info.items():
+        ws.append([field, value])
+    ws.column_dimensions["A"].width = 18
+    ws.column_dimensions["B"].width = 45
+
+def read_run_info(wb) -> dict:
+    """{field: value} from the Run info sheet, {} if the workbook has none (older files)."""
+    if RUN_INFO_SHEET not in wb.sheetnames:
+        return {}
+    rows = wb[RUN_INFO_SHEET].iter_rows(min_row=2, values_only=True)
+    return {str(r[0]): "" if r[1] is None else str(r[1]) for r in rows if r and r[0] is not None}
+
+def with_run_info(xlsx: bytes, info: dict) -> bytes:
+    wb = openpyxl.load_workbook(io.BytesIO(xlsx))
+    write_run_info(wb, info)
+    out = io.BytesIO()
+    wb.save(out)
+    return out.getvalue()

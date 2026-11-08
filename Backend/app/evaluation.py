@@ -1,4 +1,8 @@
+import json
+import os
 import re
+import subprocess
+from datetime import datetime
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -6,7 +10,7 @@ from langchain_community.callbacks.manager import get_openai_callback
 
 from app.agent.nodes import calculate_cost, chat_model, _canonical_value
 from app.agent.prompts import evaluation_judge_prompt
-from app.config import JUDGE_MODEL
+from app.config import BASE_DIR, JUDGE_MODEL, MODEL_SETTINGS
 
 # ==========================================
 # 6. LLM JUDGE (ACCURACY EVALUATOR)
@@ -61,6 +65,34 @@ def run_llm_judge(question: str, generated_answer: str, expected_answer: str, ju
         return apply_verdict_cap(output, expected_answer), eval_cost
     except Exception as e:
         return EvaluationResult(score=0, reasoning=f"Error evaluating: {str(e)}"), 0.0
+
+# --- Run info (the "Run info" sheet of evaluated files) ---
+def git_commit() -> str:
+    """Short hash of HEAD, "+dirty" if tracked files differ from it; "unknown" without git (e.g. Docker)."""
+    root = os.path.dirname(BASE_DIR)
+    try:
+        sha = subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=root, capture_output=True, text=True,
+                             timeout=5, check=True).stdout.strip()
+        dirty = subprocess.run(["git", "diff", "--quiet", "HEAD"], cwd=root, capture_output=True, timeout=5).returncode
+        return sha + ("+dirty" if dirty else "")
+    except Exception:
+        return "unknown"
+
+def now_iso() -> str:
+    return datetime.now().astimezone().isoformat(timespec="seconds")
+
+def judge_info(judge_model: Optional[str] = None) -> dict:
+    model = judge_model or JUDGE_MODEL
+    return {"Judge model": model, "Judge settings": json.dumps(MODEL_SETTINGS[model])}
+
+# Read once, when this module is imported = when the backend loaded its code (--reload re-imports on every
+# change). A stale server process then records the commit it actually runs, not the current HEAD.
+CODE_COMMIT = git_commit()
+BACKEND_STARTED = now_iso()
+
+def run_info(agent_model: str) -> dict:
+    return {"Agent model": agent_model, **judge_info(), "Timestamp": now_iso(), "Git commit": CODE_COMMIT,
+            "Backend started": BACKEND_STARTED}
 
 def categorical_eval(generated_value: str, expected_value: str, allowed_values: list) -> "EvaluationResult":
     """Deterministic evaluation for constrained / list-value answers

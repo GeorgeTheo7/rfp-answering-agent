@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 
+import openpyxl
 import pandas as pd
 
 from app.config import FAIL_MSG
@@ -65,3 +66,15 @@ def test_several_runs_show_mean_min_max(tmp_path):
     assert "| Overall | 5 | 62.0 (60.0–64.0) |" in text
     assert "| Answer | 0.5 (0–1) | EV-02 (1/2) |" in text
     assert "| EV-02 | deduction | held_out | 60.0 (40–80) |" in text
+
+
+def test_report_prints_run_info_and_ignores_its_sheet(tmp_path):
+    from app.excel_io import write_run_info
+    path = _workbook(tmp_path / "Evaluated_a.xlsx", RUN1)
+    wb = openpyxl.load_workbook(path)
+    write_run_info(wb, {"Agent model": "gpt-6-luna", "Judge model": "gpt-6-luna", "Git commit": "abc1234"})
+    wb.save(path)
+    text = score_report.report([path, _workbook(tmp_path / "Evaluated_b.xlsx", RUN1)])
+    assert "- Evaluated_a.xlsx (Agent model: gpt-6-luna; Judge model: gpt-6-luna; Git commit: abc1234)" in text
+    assert "- Evaluated_b.xlsx (no run info)" in text
+    assert "| Overall | 5 | 60.0 (60.0–60.0) |" in text  # Run info rows not counted

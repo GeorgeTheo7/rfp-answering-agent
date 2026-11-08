@@ -743,3 +743,14 @@ def test_nodes_read_xlsm(tmp_path):
 
     assert [q.id for q in questions] == ["[RFP] A1"]
     assert build_answer_sheets(path, answers)["RFP"]["Answer"].tolist() == ["answer to first"]
+
+
+def test_run_info_round_trip_replaces_sheet_and_is_empty_for_old_files():
+    from app.excel_io import RUN_INFO_SHEET, read_run_info, write_run_info
+    wb = openpyxl.Workbook()
+    wb.active.title = "Eval"
+    assert read_run_info(wb) == {}
+    write_run_info(wb, {"Agent model": "a", "Judge model": "j1"})
+    write_run_info(wb, {"Agent model": "a", "Judge model": "j2", "Cost": 0.5})
+    assert wb.sheetnames == ["Eval", RUN_INFO_SHEET]
+    assert read_run_info(wb) == {"Agent model": "a", "Judge model": "j2", "Cost": "0.5"}

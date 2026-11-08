@@ -3,6 +3,8 @@ Real LLM calls (judge only). Run: .\\venv\\Scripts\\python eval\\rejudge.py <Eva
 <judge model> must be a key of MODEL_SETTINGS in Backend/app/config.py. For every row with a question and an
 expected answer (as in /api/rfp/evaluate), run_llm_judge compares the existing Answer with the Expected Answer;
 LLM Score / LLM Reasoning are overwritten, everything else (columns, Cost ($), colours) is kept.
+Run info sheet: judge fields replaced, "Rejudged at" / "Rejudge commit" added; agent fields kept
+("unknown" for older files without the sheet).
 Writes <input>_rejudged_<model>.xlsx next to the input and prints the total judge cost.
 Free-text judging only (no categorical / dropdown scoring).
 """
@@ -14,8 +16,10 @@ import openpyxl
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "Backend"))
+from app import evaluation
 from app.config import MODEL_SETTINGS
-from app.evaluation import run_llm_judge
+from app.evaluation import judge_info, now_iso, run_llm_judge
+from app.excel_io import RUN_INFO_SHEET, read_run_info, write_run_info
 
 REQUIRED = ["Question", "Expected Answer", "Answer", "LLM Score", "LLM Reasoning"]
 
@@ -36,6 +40,8 @@ def rejudge(input_path: str, model: str, workers: int = 5) -> tuple[str, float, 
     wb = openpyxl.load_workbook(input_path)
     jobs = []  # (sheet, row number, header->column index, question, answer, expected)
     for ws in wb.worksheets:
+        if ws.title == RUN_INFO_SHEET:
+            continue
         header = {_text(c.value).strip(): c.column for c in ws[1] if _text(c.value).strip()}
         missing = [c for c in REQUIRED if c not in header]
         if missing:
@@ -58,6 +64,10 @@ def rejudge(input_path: str, model: str, workers: int = 5) -> tuple[str, float, 
         ws.cell(row, header["LLM Score"]).value = result.score
         ws.cell(row, header["LLM Reasoning"]).value = result.reasoning
         total += cost
+    info = read_run_info(wb) or {"Agent model": "unknown", "Timestamp": "unknown", "Git commit": "unknown"}
+    info.update(judge_info(model))
+    info.update({"Rejudged at": now_iso(), "Rejudge commit": evaluation.CODE_COMMIT})
+    write_run_info(wb, info)
     out = output_path(input_path, model)
     wb.save(out)
     return out, total, len(jobs)

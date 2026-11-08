@@ -212,8 +212,10 @@ def compare_excel(before_path, after_path, allowed=None, fill_changes=None):
     fill_changes = fill_changes or {}
     problems = []
     before, after = openpyxl.load_workbook(before_path), openpyxl.load_workbook(after_path)
-    if before.sheetnames != after.sheetnames:
-        return [f"sheets {before.sheetnames} != {after.sheetnames}"]
+    # Run info (models, time, commit) was added to evaluated files after the baseline and varies per run.
+    after_sheets = [s for s in after.sheetnames if s != "Run info"]
+    if before.sheetnames != after_sheets:
+        return [f"sheets {before.sheetnames} != {after_sheets}"]
     for ws_b in before.worksheets:
         ws_a = after[ws_b.title]
         if (ws_b.max_row, ws_b.max_column) != (ws_a.max_row, ws_a.max_column):

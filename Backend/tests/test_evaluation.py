@@ -1,3 +1,7 @@
+import base64
+import json
+import io
+import re
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -8,6 +12,7 @@ from fastapi.testclient import TestClient
 from app import api, evaluation
 from app.agent import nodes
 from app.config import JUDGE_MODEL, MODEL_PRICING, MODEL_SETTINGS
+from app.excel_io import RUN_INFO_SHEET, read_run_info
 from app.main import app
 
 
@@ -57,6 +62,15 @@ def test_evaluate_runs_agent_with_uploaded_model_and_judge_without_it(tmp_path, 
     assert response.status_code == 200
     assert graph_inputs[0]["selected_model"] == "gpt-5-mini"
     assert len(judge_args) == 1 and judge_args[0][1] == {} and len(judge_args[0][0]) == 3
+    wb = openpyxl.load_workbook(io.BytesIO(base64.b64decode(response.json()["excel_base64"])))
+    assert wb.sheetnames[-1] == RUN_INFO_SHEET and wb.sheetnames[0] != RUN_INFO_SHEET
+    info = read_run_info(wb)
+    assert list(info) == ["Agent model", "Judge model", "Judge settings", "Timestamp", "Git commit",
+                          "Backend started"]
+    assert (info["Agent model"], info["Judge model"]) == ("gpt-5-mini", JUDGE_MODEL)
+    assert (info["Git commit"], info["Backend started"]) == (evaluation.CODE_COMMIT, evaluation.BACKEND_STARTED)
+    assert info["Judge settings"] == json.dumps(MODEL_SETTINGS[JUDGE_MODEL])
+    assert re.match(r"\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d", info["Timestamp"]) and info["Git commit"]
 
 
 @pytest.mark.parametrize("expected,verdict", [
@@ -120,3 +134,22 @@ def test_switching_judge_to_gpt_6_luna_uses_its_settings_and_price(monkeypatch):
     assert seen["model"] == "gpt-6-luna" and seen["reasoning_effort"] == "low" and "temperature" not in seen
     assert result.score == 90 and result.reasoning == "ok [verdict: yes]"
     assert cost == 0.10 + 0.50
+
+
+def test_git_commit_is_short_hash_or_unknown(monkeypatch):
+    assert re.fullmatch(r"[0-9a-f]{7,}(\+dirty)?|unknown", evaluation.git_commit())
+
+    def no_git(*args, **kwargs):
+        raise FileNotFoundError("git")
+
+    monkeypatch.setattr(evaluation.subprocess, "run", no_git)
+    assert evaluation.git_commit() == "unknown"
+
+
+def test_run_info_records_commit_and_start_time_read_at_import_not_per_request(monkeypatch):
+    monkeypatch.setattr(evaluation, "CODE_COMMIT", "loaded1")
+    monkeypatch.setattr(evaluation, "BACKEND_STARTED", "2026-11-08T04:36:35+02:00")
+    monkeypatch.setattr(evaluation, "git_commit", lambda: "head999")  # HEAD moved on since the backend started
+    info = evaluation.run_info("gpt-4o-mini")
+    assert (info["Git commit"], info["Backend started"]) == ("loaded1", "2026-11-08T04:36:35+02:00")
+    assert info["Timestamp"] != info["Backend started"]

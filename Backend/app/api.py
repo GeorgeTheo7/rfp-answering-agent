@@ -12,8 +12,8 @@ from pydantic import BaseModel
 from app.agent.graph import rfp_graph
 from app.agent.nodes import is_fail_text
 from app.agent.schemas import Answer, Status
-from app.evaluation import run_llm_judge, categorical_eval
-from app.excel_io import REVIEW_NOTE_COL, detect_status_columns, create_formatted_excel_bytes, answer_statuses, build_answer_sheets, read_sheets, parse_question_id, find_id_column, find_question_column
+from app.evaluation import run_info, run_llm_judge, categorical_eval
+from app.excel_io import REVIEW_NOTE_COL, with_run_info, detect_status_columns, create_formatted_excel_bytes, answer_statuses, build_answer_sheets, read_sheets, parse_question_id, find_id_column, find_question_column
 from app.config import COST_DECIMALS, EXCEL_EXTENSIONS
 from app.store import get_vectorstore
 from app.ingestion import ingest, IngestWriteError
@@ -328,7 +328,8 @@ async def evaluate_rfp_accuracy(file: UploadFile = File(...), model: str = Form(
 
         # 4. Export the final Excel with the scores
         excel_io = create_formatted_excel_bytes(sheets_dict=sheets, statuses=answer_statuses(temp_input_path, sheets, answers))
-        excel_base64 = base64.b64encode(excel_io.getvalue()).decode('utf-8')
+        excel_bytes = with_run_info(excel_io.getvalue(), run_info(model))
+        excel_base64 = base64.b64encode(excel_bytes).decode('utf-8')
         export_name = f"Evaluated_{os.path.splitext(file.filename)[0]}.xlsx"
 
         return {

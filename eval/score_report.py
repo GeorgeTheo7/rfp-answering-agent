@@ -8,11 +8,13 @@ import re
 import sys
 from statistics import mean
 
+import openpyxl
 import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "Backend"))
 from app.agent.nodes import _CITATION_GROUP, is_fail_text
+from app.excel_io import RUN_INFO_SHEET, read_run_info
 
 # \b before the ID prefixes so words like "standards-based" don't count as "DS-".
 LEAK = re.compile(r"velmora|brennholt|hamburg|leipzig|\bvsa-|\bds-", re.IGNORECASE)
@@ -27,7 +29,8 @@ def _text(value) -> str:
 
 def load_run(path) -> list[dict]:
     """One dict per row with an ID: id, type, split, not_found, score, leak_answer, leak_sources."""
-    df = pd.concat(pd.read_excel(path, sheet_name=None).values(), ignore_index=True)
+    sheets = pd.read_excel(path, sheet_name=None)
+    df = pd.concat([s for name, s in sheets.items() if name != RUN_INFO_SHEET], ignore_index=True)
     missing = [c for c in REQUIRED if c not in df.columns]
     if missing:
         raise ValueError(f"{path}: missing columns {missing}")
@@ -91,6 +94,13 @@ def fmt_ids(id_lists, order) -> str:
     return ", ".join(shown) or "–"
 
 
+def run_info_line(path) -> str:
+    info = read_run_info(openpyxl.load_workbook(path, read_only=True))
+    if not info:
+        return "no run info"
+    return "; ".join(f"{k}: {v}" for k, v in info.items())
+
+
 def report(paths) -> str:
     runs = [load_run(p) for p in paths]
     metrics = [run_metrics(rows) for rows in runs]
@@ -104,7 +114,7 @@ def report(paths) -> str:
         return [m[key] for m in metrics]
 
     out = [f"# Score report ({len(paths)} run{'s' if len(paths) > 1 else ''})", ""]
-    out += [f"- {os.path.basename(str(p))}" for p in paths] + [""]
+    out += [f"- {os.path.basename(str(p))} ({run_info_line(p)})" for p in paths] + [""]
 
     out += ["## Mean score", "| Set | Rows | Mean |", "|---|---|---|",
             f"| Overall | {len(first)} | {fmt(col('overall'))} |"]
