@@ -4,7 +4,7 @@ import pytest
 
 from app.agent import nodes
 from app.agent.nodes import _canonical_value
-from app.agent.schemas import AnalystDraft, HallucinationEvaluation, Question, Status, company_analysts
+from app.agent.schemas import AnalystDraft, Answer, HallucinationEvaluation, Question, Status, company_analysts
 from app.config import FAIL_MSG, FAIL_MSG_PREFIX, MMR_LAMBDA, RETRIEVAL_FETCH_K, RETRIEVAL_K
 
 ALLOWED = ["Yes", "No", "Partially Supported"]
@@ -115,3 +115,50 @@ def test_answer_found_true_keeps_partial_answer(monkeypatch):
 def test_exact_fail_message_with_answer_found_true_still_routes_as_not_found(monkeypatch):
     draft = _draft_with(monkeypatch, FAIL_MSG, True)  # text check is the fallback
     assert nodes.route_after_draft({"draft": draft}) == "conflict_audit"
+
+
+@pytest.mark.parametrize("text", [
+    "SCIM provisioning is not mentioned in the provided context.",
+    "Service credits are not explicitly stated.",
+    "The context does not specify the lockout threshold.",
+    "There is no mention of cyber insurance.",
+    "Whether reports are shared is not provided in the documentation.",
+    "We are unable to confirm this.",
+])
+def test_absence_statements_are_detected(text):
+    assert nodes.has_absence_statement(text)
+
+
+@pytest.mark.parametrize("text", [
+    "LogistiComp WMS is not available on-premises.",
+    "No customer data is used to train AI models.",
+    "Keys are rotated annually [**Source: Not mentioned policy.pdf (Page 1)**].",  # citations ignored
+    "Yes, MFA is mandatory for all employees.",
+])
+def test_facts_and_citations_are_not_absence_statements(text):
+    assert not nodes.has_absence_statement(text)
+
+
+def _finalize(text, review_note=""):
+    d = Answer(question_id="Q1", question_text="q", assigned_analyst="a", answer_text=text, review_note=review_note)
+    return nodes.finalize_node({"draft": d, "conflicts": "", "status_map": {}, "allowed_sources": []})["answer"]
+
+
+def test_finalize_flags_absence_statement_for_review():
+    answer = _finalize("PCI DSS is not mentioned in the available information.")
+    assert (answer.status, answer.review_note) == (Status.needs_review, nodes.ABSENCE_NOTE)
+
+
+def test_finalize_keeps_give_up_note_and_adds_absence_note():
+    answer = _finalize("Retention is not specified.", review_note="Judge: unsupported")
+    assert (answer.status, answer.review_note) == (Status.needs_review, f"Judge: unsupported\n{nodes.ABSENCE_NOTE}")
+
+
+def test_finalize_fail_message_stays_not_found_and_partial_gets_only_partial_note():
+    assert (_finalize(FAIL_MSG).status, _finalize(FAIL_MSG).review_note) == (Status.not_found, "")
+    partial = _finalize(f"SSO yes. SCIM is not mentioned. {FAIL_MSG}")
+    assert (partial.status, partial.review_note) == (Status.needs_review, nodes.PARTIAL_NOTE)
+
+
+def test_finalize_plain_answer_stays_answered():
+    assert _finalize("Yes, MFA is mandatory for all employees.").status == Status.answered

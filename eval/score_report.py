@@ -1,7 +1,9 @@
 """Markdown score report for Evaluated_*.xlsx files (output of /api/rfp/evaluate on eval/eval_set_v2.xlsx).
 No LLM calls. Run: .\\venv\\Scripts\\python eval\\score_report.py <Evaluated_*.xlsx> [more runs...]
-Final score per row: Expected Status not_found -> 100 if the Answer is fail text, else 0 (LLM Score ignored);
-otherwise LLM Score. With several files every number is mean (min-max) across runs.
+Final score per row: Expected Status not_found -> 100 if the agent's status is not_found or needs_review (a
+human sees it), else 0 (LLM Score ignored); otherwise LLM Score. Status from the "Answer status" column; older
+files without it: fail text -> not_found, a review note -> needs_review, else answered.
+With several files every number is mean (min-max) across runs.
 """
 import os
 import re
@@ -13,8 +15,13 @@ import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "Backend"))
-from app.agent.nodes import _CITATION_GROUP, is_fail_text
-from app.excel_io import RUN_INFO_SHEET, read_run_info
+from app.agent.nodes import _CITATION_GROUP, is_fail_text, is_partial_fail_text
+from app.excel_io import (
+    ANSWER_STATUS_COL,
+    REVIEW_NOTE_COL,
+    RUN_INFO_SHEET,
+    read_run_info,
+)
 
 # \b before the ID prefixes so words like "standards-based" don't count as "DS-".
 LEAK = re.compile(r"velmora|brennholt|hamburg|leipzig|\bvsa-|\bds-", re.IGNORECASE)
@@ -27,8 +34,22 @@ def _text(value) -> str:
     return "" if pd.isna(value) else str(value)
 
 
+FLAGGED = ("not_found", "needs_review")
+
+
+def row_status(r) -> str:
+    """The agent's status: the Answer status column, else inferred like finalize_node (older files)."""
+    status = _text(r.get(ANSWER_STATUS_COL)).strip()
+    if status:
+        return status
+    answer = _text(r.get("Answer"))
+    if is_fail_text(answer) and not is_partial_fail_text(answer):
+        return "not_found"
+    return "needs_review" if _text(r.get(REVIEW_NOTE_COL)).strip() or is_partial_fail_text(answer) else "answered"
+
+
 def load_run(path) -> list[dict]:
-    """One dict per row with an ID: id, type, split, not_found, score, leak_answer, leak_sources."""
+    """One dict per row with an ID: id, type, split, not_found, status, score, refused, leak_answer, leak_sources."""
     sheets = pd.read_excel(path, sheet_name=None)
     df = pd.concat([s for name, s in sheets.items() if name != RUN_INFO_SHEET], ignore_index=True)
     missing = [c for c in REQUIRED if c not in df.columns]
@@ -40,14 +61,15 @@ def load_run(path) -> list[dict]:
             continue
         answer, sources = _text(r["Answer"]), _text(r["Sources"])
         not_found = _text(r["Expected Status"]).strip() == "not_found"
+        status = row_status(r)
         if not_found:
-            score = 100.0 if is_fail_text(answer) else 0.0
+            score = 100.0 if status in FLAGGED else 0.0
         else:
             llm = pd.to_numeric(r["LLM Score"], errors="coerce")
             score = 0.0 if pd.isna(llm) else float(llm)
         rows.append({
             "id": _text(r["ID"]).strip(), "type": _text(r["Type"]).strip(), "split": _text(r["Split"]).strip(),
-            "not_found": not_found, "score": score,
+            "not_found": not_found, "status": status, "score": score,
             # Text leak = names the agent wrote itself; cited files are counted by the Sources check.
             "refused": is_fail_text(answer),
             "leak_answer": bool(LEAK.search(_CITATION_GROUP.sub("", answer))),
@@ -64,8 +86,11 @@ def run_metrics(rows: list[dict]) -> dict:
     nf = [r for r in rows if r["not_found"]]
     m = {
         "overall": _avg(rows),
-        "refusals": sum(r["score"] == 100 for r in nf),
-        "wrong": [r["id"] for r in nf if r["score"] != 100],
+        "handled": sum(r["status"] in FLAGGED for r in nf),
+        "handled_not_found": sum(r["status"] == "not_found" for r in nf),
+        "handled_review": sum(r["status"] == "needs_review" for r in nf),
+        "unflagged": [r["id"] for r in nf if r["status"] not in FLAGGED],
+        "flagged_answerable": [r["id"] for r in rows if not r["not_found"] and r["status"] == "needs_review"],
         # Answerable questions answered with the fail text.
         "wrongful": [r["id"] for r in rows if not r["not_found"] and r["refused"]],
         "leak_answer": [r["id"] for r in rows if r["leak_answer"]],
@@ -133,14 +158,19 @@ def report(paths) -> str:
         out.append(f"| {t} | " + " | ".join(cells) + " |")
     out.append("")
 
-    wrong = col("wrong")
+    def by_split(lists):
+        return ", ".join(f"{s} {fmt([sum(info[i]['split'] == s for i in ids) for ids in lists], 0)}" for s in SPLITS)
+
+    unflagged, flagged, wrongful = col("unflagged"), col("flagged_answerable"), col("wrongful")
     out += ["## Not found",
-            f"- Correct refusals: {fmt(col('refusals'), 0)}/{nf_total}",
-            f"- Wrong answers (answered an unanswerable question): {fmt([len(w) for w in wrong], 0)}: {fmt_ids(wrong, order)}"]
-    wrongful = col("wrongful")
-    by_split = ", ".join(f"{s} {fmt([sum(info[i]['split'] == s for i in w) for w in wrongful], 0)}" for s in SPLITS)
-    out += [(f"- Wrongful refusals (answerable question answered with the fail text): "
-             f"{fmt([len(w) for w in wrongful], 0)} ({by_split}): {fmt_ids(wrongful, order)}"), ""]
+            (f"- Unanswerable handled (not_found or needs_review): {fmt(col('handled'), 0)}/{nf_total} "
+             f"(not_found {fmt(col('handled_not_found'), 0)}, needs_review {fmt(col('handled_review'), 0)})"),
+            (f"- Unflagged answers to unanswerable questions: {fmt([len(u) for u in unflagged], 0)}: "
+             f"{fmt_ids(unflagged, order)}"),
+            (f"- Answerable rows flagged needs_review: {fmt([len(f) for f in flagged], 0)} ({by_split(flagged)}): "
+             f"{fmt_ids(flagged, order)}"),
+            (f"- Wrongful refusals (answerable question answered with the fail text): "
+             f"{fmt([len(w) for w in wrongful], 0)} ({by_split(wrongful)}): {fmt_ids(wrongful, order)}"), ""]
 
     out += ["## Leaks", "| Where | Rows | IDs |", "|---|---|---|"]
     for key, label in (("leak_answer", "Answer"), ("leak_sources", "Sources")):

@@ -367,14 +367,35 @@ _FAIL_SENTENCE = re.compile(
 )
 PARTIAL_NOTE = "Partial answer: the model also used the not-found message"
 
+# Free-worded "information is missing" statements (e.g. gpt-6-luna's paraphrased refusals). Matched on the
+# answer without its citations. Bare "not available / not provided" and "no data" are left out: they usually
+# state facts ("on-premises is not available"), not missing information.
+_INFO_VERBS = (r"mentioned|stated|specified|described|documented|addressed|covered|detailed|indicated|defined|"
+               r"referenced|included|listed")
+ABSENCE_PATTERNS = [
+    rf"\bnot (?:explicitly |specifically |directly |clearly )?(?:{_INFO_VERBS})\b",
+    r"\b(?:does|do|did)(?: not|n't) (?:explicitly |specifically |directly |clearly )?"
+    r"(?:mention|state|specify|describe|document|address|cover|detail|indicate|define|reference|include|list|provide)\b",
+    r"\bno (?:specific |explicit |further |additional |detailed )?(?:information|details|mention|reference)\b",
+    r"\bnot (?:available|provided|found|included) in the (?:context|documentation|documents|sources|provided|available)",
+    r"\b(?:unable to|cannot|can't|could not) (?:find|confirm|determine|verify)\b",
+]
+_ABSENCE = re.compile("|".join(f"(?:{p})" for p in ABSENCE_PATTERNS), re.IGNORECASE)
+ABSENCE_NOTE = "The answer states that information is missing; please confirm."
+
+def has_absence_statement(text: str) -> bool:
+    """True if the answer (citations removed) says some information is not in the sources."""
+    return bool(_ABSENCE.search(_CITATION_GROUP.sub("", text or "")))
+
 def is_partial_fail_text(text: str) -> bool:
     """True if the text has the not-found message AND other content (a partial answer)."""
     return is_fail_text(text) and bool(re.search(r"\w", _FAIL_SENTENCE.sub("", text)))
 
 def finalize_node(state: QuestionState):
     """Builds the final Answer; sources_used rebuilt from the valid inline citations (invalid ones
-    are only in the review note). Status: needs_review (partial not-found answer, or give_up kept the
-    draft), not_found (only the not-found message), else answered. Cost is set by the caller."""
+    are only in the review note). Status: needs_review (partial not-found answer, an absence statement,
+    or give_up kept the draft), not_found (only the not-found message), else answered. Cost is set by
+    the caller."""
     draft = state["draft"]
     if draft.answer_text.strip() == FAIL_MSG:
         sources_used = []
@@ -391,6 +412,8 @@ def finalize_node(state: QuestionState):
     elif is_fail_text(draft.answer_text):
         status = Status.not_found
     else:
+        if has_absence_statement(draft.answer_text):
+            review_note = f"{review_note}\n{ABSENCE_NOTE}" if review_note else ABSENCE_NOTE
         status = Status.needs_review if review_note else Status.answered
     answer = draft.model_copy(update={
         "conflicts": state["conflicts"],

@@ -86,3 +86,6 @@ Change: `AnalystDraft.answer_found`; false -> code writes FAIL_MSG (not_found), 
 - Refusals 2/6 and 1/6 (before: 3/6). Override fired once (r1, EV-50, correct); 0 destructive overrides (no answerable question overridden). EV-13 refused in all Luna runs before and after (retrieval miss, not the override).
 - Cause: on unanswerable questions Luna adds a related fact ("ISO 27001", "records kept 3 years") and then sets answer_found=true, so the override cannot fire.
 - Decision: keep answer_found (harmless, the override is safe); not re-run with gpt-4o-mini. Next: absence statements -> needs_review in code (README Roadmap).
+
+## 2026-11-08 score rule change: unanswerable rows
+From this commit `eval/score_report.py` counts an unanswerable row as handled (score 100) if the agent's status is `not_found` OR `needs_review` (a human sees it); before, only the fail text counted. Reason: `finalize_node` now flags absence statements ("X is not mentioned…") as `needs_review`. Status comes from the new "Answer status" column of evaluated files, inferred for older files (fail text -> not_found, review note -> needs_review). Older entries above use the old rule; re-run the report to compare.

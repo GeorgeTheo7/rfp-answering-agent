@@ -754,3 +754,24 @@ def test_run_info_round_trip_replaces_sheet_and_is_empty_for_old_files():
     write_run_info(wb, {"Agent model": "a", "Judge model": "j2", "Cost": 0.5})
     assert wb.sheetnames == ["Eval", RUN_INFO_SHEET]
     assert read_run_info(wb) == {"Agent model": "a", "Judge model": "j2", "Cost": "0.5"}
+
+
+def test_evaluate_output_has_answer_status_column_after_answer(tmp_path, monkeypatch):
+    wb = openpyxl.Workbook()
+    wb.active.append(["Question", "Expected Answer", "Status"])  # an RFP "Status" column is left alone
+    wb.active.append(["q1", "yes", "keep"])
+    wb.active.append(["q2", "no", "keep"])
+    path = _save(wb, tmp_path, "rfp.xlsx")
+    questions, _ = _answer_all(path)
+    answers = [_answer_of(questions[0], status=Status.needs_review, review_note="n"),
+               _answer_of(questions[1], status=Status.answered)]
+    monkeypatch.setattr(api, "run_llm_judge", lambda q, g, expected: (SimpleNamespace(score=50, reasoning="r"), 0.0))
+
+    body = _post_with_answers("/api/rfp/evaluate", path, answers, monkeypatch).json()
+
+    ws = openpyxl.load_workbook(io.BytesIO(base64.b64decode(body["excel_base64"]))).worksheets[0]
+    header = [c.value for c in ws[1]]
+    i = header.index("Answer status")
+    assert header[i - 1] == "Answer"
+    assert [ws.cell(r, i + 1).value for r in (2, 3)] == ["needs_review", "answered"]
+    assert [ws.cell(r, header.index("Status") + 1).value for r in (2, 3)] == ["keep", "keep"]

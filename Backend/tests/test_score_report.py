@@ -43,8 +43,9 @@ def test_single_run_scores_not_found_leaks_and_low_rows(tmp_path):
     assert "| Overall | 5 | 60.0 |" in text            # (90 + 40 + 100 + 0 + 70) / 5
     assert "| dev | 3 | 86.7 |" in text and "| held_out | 2 | 20.0 |" in text
     assert "| deduction | 0 | – | 1 | 40.0 |" in text
-    assert "Correct refusals: 1/2" in text
-    assert "Wrong answers (answered an unanswerable question): 1: EV-04" in text
+    assert "Unanswerable handled (not_found or needs_review): 1/2 (not_found 1, needs_review 0)" in text
+    assert "Unflagged answers to unanswerable questions: 1: EV-04" in text
+    assert "Answerable rows flagged needs_review: 0 (dev 0, held_out 0): –" in text
     assert "Wrongful refusals (answerable question answered with the fail text): 0 (dev 0, held_out 0): –" in text
     assert "| Answer | 1 | EV-02 |" in text and "| Sources | 2 | EV-02, EV-04 |" in text
     assert "| EV-02 | deduction | held_out | 40 |" in text and "| EV-04 | unanswerable | held_out | 0 |" in text
@@ -86,3 +87,27 @@ def test_wrongful_refusals_count_answerable_rows_with_fail_text_by_split(tmp_pat
                    ("EV-07", "partial", "partial", "dev", f"Partly. {FAIL_MSG}", "", 30)]
     text = score_report.report([_workbook(tmp_path / "Evaluated_w.xlsx", rows)])
     assert "Wrongful refusals (answerable question answered with the fail text): 2 (dev 1, held_out 1): EV-06, EV-07" in text
+
+
+def test_status_column_counts_needs_review_as_handled_and_flags_answerable_rows(tmp_path):
+    path = _workbook(tmp_path / "Evaluated_s.xlsx", RUN1)
+    df = pd.read_excel(path)
+    # EV-04 (unanswerable) paraphrased but flagged; EV-05 (answerable) flagged.
+    df.insert(df.columns.get_loc("Answer") + 1, "Answer status",
+              ["answered", "answered", "not_found", "needs_review", "needs_review"])
+    df.to_excel(path, sheet_name="Eval", index=False)
+    rows = {r["id"]: r for r in score_report.load_run(path)}
+    assert rows["EV-04"]["score"] == 100 and rows["EV-04"]["status"] == "needs_review"
+    text = score_report.report([path])
+    assert "Unanswerable handled (not_found or needs_review): 2/2 (not_found 1, needs_review 1)" in text
+    assert "Unflagged answers to unanswerable questions: 0: –" in text
+    assert "Answerable rows flagged needs_review: 1 (dev 1, held_out 0): EV-05" in text
+
+
+def test_status_inferred_from_review_note_in_older_files(tmp_path):
+    path = _workbook(tmp_path / "Evaluated_o.xlsx", RUN1)
+    df = pd.read_excel(path)
+    df.insert(df.columns.get_loc("Conflicts") + 1, "Review note", ["", "", "", "Model text before not-found override: x", ""])
+    df.to_excel(path, sheet_name="Eval", index=False)
+    rows = {r["id"]: r for r in score_report.load_run(path)}
+    assert [rows[i]["status"] for i in ("EV-01", "EV-03", "EV-04")] == ["answered", "not_found", "needs_review"]

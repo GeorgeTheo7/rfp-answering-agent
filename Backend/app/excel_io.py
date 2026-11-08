@@ -13,6 +13,8 @@ from app.agent.schemas import Status
 from app.config import COST_DECIMALS, EXCEL_EXTENSIONS
 
 REVIEW_NOTE_COL = "Review note"  # only added when some answer has a note
+# Evaluated files only; not "Status", which RFP sheets often use for a dropdown.
+ANSWER_STATUS_COL = "Answer status"
 RUN_INFO_SHEET = "Run info"  # evaluated files: Field/Value rows (models, settings, time, commit)
 STATUS_FILLS = {Status.not_found: "FFC7CE", Status.error: "FFC7CE", Status.needs_review: "FFEB9C"}
 
@@ -343,3 +345,13 @@ def with_run_info(xlsx: bytes, info: dict) -> bytes:
     out = io.BytesIO()
     wb.save(out)
     return out.getvalue()
+
+
+def add_answer_status_column(sheets: dict, statuses: dict):
+    """Inserts ANSWER_STATUS_COL right after "Answer" (statuses as from answer_statuses; "" = no Answer)."""
+    for name, df in sheets.items():
+        values = [s.value if s else "" for s in statuses.get(name, [None] * len(df))]
+        if ANSWER_STATUS_COL in df.columns:
+            df[ANSWER_STATUS_COL] = values
+        else:
+            df.insert(df.columns.get_loc("Answer") + 1, ANSWER_STATUS_COL, values)
