@@ -1,0 +1,31 @@
+{
+  "properties": {
+    "reasoning": {
+      "description": "Brief explanation, written before the verdict and the score.",
+      "title": "Reasoning",
+      "type": "string"
+    },
+    "generated_verdict": {
+      "description": "Does the Generated Answer, on its own, mean yes, no, or neither? Judge the meaning, not the wording.",
+      "enum": [
+        "yes",
+        "no",
+        "neither"
+      ],
+      "title": "Generated Verdict",
+      "type": "string"
+    },
+    "score": {
+      "description": "Score from 0 to 100: how well the Generated Answer covers the facts in the Expected Answer.",
+      "title": "Score",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "reasoning",
+    "generated_verdict",
+    "score"
+  ],
+  "title": "JudgeOutput",
+  "type": "object"
+}

@@ -15,7 +15,7 @@ from app.agent.schemas import (
     AnalystDraft, ConflictDetection, HallucinationEvaluation, RFPQuestions, StatusChoices, company_analysts,
 )
 from app.config import FAIL_MSG, FAIL_MSG_PREFIX
-from app.evaluation import EvaluationResult
+from app.evaluation import JudgeOutput
 
 SNAPSHOT_DIR = Path(__file__).parent / "prompt_snapshots"
 
@@ -42,7 +42,7 @@ def _persona(category):
 
 
 # Every model passed to with_structured_output: field order, descriptions and docstrings reach the LLM.
-LLM_SCHEMAS = [RFPQuestions, AnalystDraft, HallucinationEvaluation, ConflictDetection, StatusChoices, EvaluationResult]
+LLM_SCHEMAS = [RFPQuestions, AnalystDraft, HallucinationEvaluation, ConflictDetection, StatusChoices, JudgeOutput]
 
 
 def _schema(model):
