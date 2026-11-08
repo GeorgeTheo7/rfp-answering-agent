@@ -142,12 +142,13 @@ def _run_subgraph(monkeypatch, drafts, judge_rejects=False):
 
 BAD = "Min 8. [Source: LC-POL-001 Information Security Policy.pdf (Page 20)]"
 GOOD = "Min 8. [**Source: policy.pdf (Page 1)**]"
+GOOD_FINAL = "Min 8. [Source: policy.pdf (Page 1)]"  # finalize strips the bold markers
 
 
 def test_subgraph_redrafts_after_unretrieved_citation(monkeypatch):
     answer, calls = _run_subgraph(monkeypatch, [BAD, GOOD])
     assert calls == {"draft": 2, "judge": 1}
-    assert answer.answer_text == GOOD and answer.status == "answered" and answer.sources_used == ["policy.pdf"]
+    assert answer.answer_text == GOOD_FINAL and answer.status == "answered" and answer.sources_used == ["policy.pdf"]
 
 
 def test_subgraph_keeps_last_draft_for_review_when_every_citation_is_unretrieved(monkeypatch):
@@ -167,7 +168,7 @@ def test_subgraph_needs_review_sources_keep_only_valid_citations(monkeypatch):
 def test_subgraph_judge_rejects_every_draft_needs_review_with_last_feedback(monkeypatch):
     answer, calls = _run_subgraph(monkeypatch, [GOOD] * (MAX_REVISIONS + 1), judge_rejects=True)
     assert calls == {"draft": MAX_REVISIONS + 1, "judge": MAX_REVISIONS + 1}
-    assert answer.answer_text == GOOD and answer.status == "needs_review" and answer.sources_used == ["policy.pdf"]
+    assert answer.answer_text == GOOD_FINAL and answer.status == "needs_review" and answer.sources_used == ["policy.pdf"]
     assert answer.review_note == f"Judge: unsupported {MAX_REVISIONS + 1}"
 
 
@@ -177,3 +178,17 @@ def test_subgraph_all_drafts_not_found_stays_not_found(monkeypatch):
     assert calls == {"draft": MAX_REVISIONS + 1, "judge": 0}
     assert answer.answer_text == FAIL_MSG and answer.status == "not_found"
     assert answer.sources_used == [] and answer.review_note == ""
+
+
+def test_plain_citations_strips_bold_markers_only_around_citations():
+    text = "A **key** fact [**Source: a.pdf (Page 1)**][** Source: b.xlsx - S (Row 2) **] B [**Source: c.pdf (Page 3); Source: d.pdf (Page 4)**]"
+    assert nodes.plain_citations(text) == (
+        "A **key** fact [Source: a.pdf (Page 1)][Source: b.xlsx - S (Row 2)] B [Source: c.pdf (Page 3); Source: d.pdf (Page 4)]")
+    assert nodes.plain_citations("Already plain [Source: a.pdf (Page 1)]") == "Already plain [Source: a.pdf (Page 1)]"
+
+
+def test_finalize_writes_plain_citations_and_keeps_sources():
+    draft = Answer(question_id="Q1", question_text="q", assigned_analyst="a", answer_text="Yes. [**Source: a.pdf (Page 1)**]", category="Tech")
+    allowed = [SourceRef("a.pdf", "", "Page 1")]
+    answer = nodes.finalize_node({"draft": draft, "conflicts": "", "status_map": {}, "allowed_sources": allowed})["answer"]
+    assert (answer.answer_text, answer.sources_used) == ("Yes. [Source: a.pdf (Page 1)]", ["a.pdf"])

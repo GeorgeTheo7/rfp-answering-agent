@@ -383,6 +383,13 @@ ABSENCE_PATTERNS = [
 _ABSENCE = re.compile("|".join(f"(?:{p})" for p in ABSENCE_PATTERNS), re.IGNORECASE)
 ABSENCE_NOTE = "The answer states that information is missing; please confirm."
 
+# The persona asks for [**Source: …**]; the UI and Excel show text as-is, so the final answer keeps [Source: …].
+_BOLD_CITATION = re.compile(r"\[\*\*\s*(Source:[^\[\]]*?)\s*\*\*\]", re.IGNORECASE)
+
+def plain_citations(text: str) -> str:
+    """[**Source: x**] -> [Source: x]; other text unchanged."""
+    return _BOLD_CITATION.sub(lambda m: f"[{m.group(1)}]", text or "")
+
 def has_absence_statement(text: str) -> bool:
     """True if the answer (citations removed) says some information is not in the sources."""
     return bool(_ABSENCE.search(_CITATION_GROUP.sub("", text or "")))
@@ -416,6 +423,7 @@ def finalize_node(state: QuestionState):
             review_note = f"{review_note}\n{ABSENCE_NOTE}" if review_note else ABSENCE_NOTE
         status = Status.needs_review if review_note else Status.answered
     answer = draft.model_copy(update={
+        "answer_text": plain_citations(draft.answer_text),
         "conflicts": state["conflicts"],
         "status_values_json": json.dumps(state["status_map"], ensure_ascii=False),
         "sources_used": sources_used,
