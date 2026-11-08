@@ -42,4 +42,10 @@ Intended colour changes since the baseline are listed cell by cell in `FILL_CHAN
 | Review note | – | – | non-empty exactly on `needs_review` rows (printed below the table) |
 | No schema leak | no answer contains `sources_used`, `answer_text`, `reasoning`, `{'`, `':` | same | same |
 
-Baseline values: to be re-recorded on the demo knowledge base.
+## Baseline values (2026-11-08, demo KB, gpt-4o-mini, one run; LLM output varies)
+Smoke: 12/12 PASS.
+| Question | Attempts | Status | Cost ($) | Fill | Dropdown | Sources |
+|---|---|---|---|---|---|---|
+| Password (SEC-01) | 1, approved | answered | 0.0008 | none | Yes | LC-POL-002 Access Control and Password Policy.pdf |
+| Shoe size (SEC-02) | 1 draft = FAIL_MSG, no judge | not_found | 0.0005 | red | No | – |
+| Removable media (Q1) | 1, approved | answered | 0.0008 | none | – | LC-POL-010 Removable Media Policy.pdf, Velmora xlsx (near-miss logged: sheet omitted) |
