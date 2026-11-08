@@ -65,15 +65,16 @@ Judge selection:
 
 | Config | Recall | dev (29) | held_out (17) | Past-RFP chunks / question | Misses |
 |---|---|---|---|---|---|
-| a: current config (similarity k=5) | 43/46 | 27/29 | 16/17 | 1.9 | EV-08, EV-13, EV-46 |
-| b: similarity k=5 | 43/46 | 27/29 | 16/17 | 1.9 | EV-08, EV-13, EV-46 |
-| c: similarity k=8 | 44/46 | 27/29 | 17/17 | 2.7 | EV-08, EV-13 |
-| d: MMR k=8 fetch_k=20 λ=0.7 | 43/46 | 27/29 | 16/17 | 3.0 | EV-08, EV-13, EV-46 |
-| e: MMR k=5 fetch_k=20 λ=0.9 | 41/46 | 26/29 | 15/17 | 2.0 | EV-08, EV-13, EV-32, EV-45, EV-46 |
-| f: quota 4 policy PDF + 2 past-RFP | 43/46 | 26/29 | 17/17 | 2.0 | EV-08, EV-13, EV-32 |
-| g: similarity k=6 | 43/46 | 27/29 | 16/17 | 2.2 | EV-08, EV-13, EV-46 |
+| a: current config (similarity k=5) | 44/46 | 28/29 | 16/17 | 1.9 | EV-13, EV-46 |
+| b: similarity k=5 | 44/46 | 28/29 | 16/17 | 1.9 | EV-13, EV-46 |
+| c: similarity k=8 | 45/46 | 28/29 | 17/17 | 2.7 | EV-13 |
+| d: MMR k=8 fetch_k=20 λ=0.7 | 44/46 | 28/29 | 16/17 | 3.0 | EV-13, EV-46 |
+| e: MMR k=5 fetch_k=20 λ=0.9 | 42/46 | 27/29 | 15/17 | 2.0 | EV-13, EV-32, EV-45, EV-46 |
+| f: quota 4 policy PDF + 2 past-RFP | 44/46 | 27/29 | 17/17 | 2.0 | EV-13, EV-32 |
+| g: similarity k=6 | 44/46 | 28/29 | 16/17 | 2.2 | EV-13, EV-46 |
 | h: MMR k=5 fetch_k=20 λ=0.7 (previous default) | 40/46 | 25/29 | 15/17 | 1.9 | EV-08, EV-11, EV-13, EV-32, EV-45, EV-46 |
 
-- MMR λ=0.7 dropped fact chunks at similarity ranks 4–5 (EV-11, EV-32, EV-45).
-- Missed by all: EV-13 (hosting sentence at similarity rank 41: intro-heavy chunk, split mid-sentence), EV-08 (needs two separate LC-POL-005 chunks).
+- EV-08's fact phrase was corrected (now also accepts LC-POL-005 Section 8, "kept for no longer than 35 days"); before the fix every config missed EV-08 and similarity k=5 scored 43/46.
+- MMR λ=0.7 dropped the fact chunks of EV-08, EV-11, EV-32, EV-45 (EV-11, EV-32, EV-45 at similarity ranks 4–5).
+- Missed by all: EV-13 (hosting sentence at similarity rank 41: intro-heavy chunk, split mid-sentence).
 - Recall is necessary, not sufficient: answer scores with similarity k=5 not yet measured.
