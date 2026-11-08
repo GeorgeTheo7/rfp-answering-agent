@@ -74,3 +74,11 @@ def test_current_config_follows_retrieval_search_type(monkeypatch):
     monkeypatch.setattr(retrieval_eval, "RETRIEVAL_SEARCH_TYPE", "mmr")
     current(store, "q")
     assert store.calls[-1] == ("mmr", RETRIEVAL_K, MMR_LAMBDA)
+
+
+def test_fact_with_all_and_any_needs_every_all_phrase_and_one_any_phrase():
+    fact = {"all": ["90 days after the end"], "any": ["Retention of backups", "kept for no longer than 35 days"]}
+    assert retrieval_eval.fact_found(fact, ["deleted 90 days after the end", "backups are kept for no longer than 35 days"])
+    assert retrieval_eval.fact_found(fact, ["deleted 90 days after the end", "| Retention of backups | 35 days |"])
+    assert not retrieval_eval.fact_found(fact, ["deleted 90 days after the end"])
+    assert not retrieval_eval.fact_found(fact, ["backups are kept for no longer than 35 days"])

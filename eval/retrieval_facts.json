@@ -1,5 +1,5 @@
 {
- "_about": "Retrieval ground truth for eval_set_v2. A question's fact counts as retrieved if every phrase in 'all' (or at least one in 'any') appears, case-insensitive, after removing '**' and collapsing whitespace, in the text of the retrieved chunks. Unanswerable rows (EV-09, 10, 22, 38, 44, 50) are excluded.",
+ "_about": "Retrieval ground truth for eval_set_v2. A question's fact counts as retrieved if every phrase in 'all' and, when present, at least one in 'any' appear, case-insensitive, after removing '**' and collapsing whitespace, in the text of the retrieved chunks. Unanswerable rows (EV-09, 10, 22, 38, 44, 50) are excluded.",
  "facts": {
   "EV-01": {
    "all": [
@@ -39,8 +39,11 @@
   },
   "EV-08": {
    "all": [
-    "90 days after the end",
-    "Retention of backups"
+    "90 days after the end"
+   ],
+   "any": [
+    "Retention of backups",
+    "kept for no longer than 35 days"
    ]
   },
   "EV-11": {
