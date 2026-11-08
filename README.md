@@ -4,9 +4,17 @@ Answers RFP and security questionnaires (Excel or PDF) from a knowledge base of 
 Each question goes through a LangGraph subgraph: retrieve → draft with inline citations → check citations in code → LLM judge → redraft or hand off to a human.
 The output is the original workbook with answers, sources, dropdown values and a status colour per row (red = not found/error, yellow = needs review).
 
+Demo data: LogistiComp is a fictional company; all documents in `Backend/data` were written for this demo.
+
 ![UI screenshot](docs/screenshot.png)
 
-**Stack:** Python 3.12, FastAPI, LangGraph, LangChain, Chroma, OpenAI (`gpt-4o-mini` default, `text-embedding-3-small`), LlamaParse for PDFs, LangSmith tracing (optional), React/TanStack frontend.
+**Highlights**
+- **Agentic RAG with checks in code.** Per question: retrieve → draft with inline citations → citations checked against the retrieved chunks → LLM judge → redraft with feedback (max 3 drafts) → a human reviews what is still doubtful (`needs_review`) instead of the agent guessing or discarding it.
+- **Eval harness.** 52-question eval set with a dev/held-out split; unanswerable rows scored in code; the LLM judge validated by re-judging stored answers (`eval/rejudge.py`); retrieval fact recall measured without LLM calls (`eval/retrieval_eval.py`: 40 → 44 of 46 after switching from MMR to similarity).
+- **Measured model choice.** gpt-6-luna with an absence safety net scores 89.9 vs 87.3 for gpt-4o-mini (2 runs), costs $0.035 vs $0.048 per run, writes no customer names into answers and sends every unanswerable question to a human. Caveat: one gpt-6-luna run.
+- **Runs like a service.** Docker Compose (FastAPI backend, nginx frontend), GitHub Actions CI (ruff, 249 pytest tests, both Docker images built), snapshot tests over every prompt and LLM-facing schema.
+
+**Stack:** Python 3.12, FastAPI, LangGraph, LangChain, Chroma, OpenAI (`gpt-6-luna` default, `gpt-4o-mini` selectable; `text-embedding-3-small`), LlamaParse for PDFs, LangSmith tracing (optional), React/TanStack frontend, Docker Compose, GitHub Actions CI.
 
 ## Architecture
 
@@ -78,7 +86,7 @@ Both diagrams are generated from the compiled graphs with `get_graph().draw_merm
 ## How it works
 
 - **Retrieval.** Chroma, plain similarity search, k=5 (`RETRIEVAL_SEARCH_TYPE`; MMR stays selectable for comparison). The knowledge base mixes long policy PDFs with short past-RFP rows. `eval/retrieval_eval.py` checks, without LLM calls, whether the chunks holding each question's expected fact are retrieved: on the demo knowledge base similarity k=5 finds them for 44 of 46 questions, MMR (λ=0.7) for 40, with the same number of past-RFP rows (1.9 per question; EV-08's fact phrase was corrected to accept the Section 8 wording). MMR's diversity step dropped policy chunks ranked 4–5 in favour of less relevant ones.
-- **Analyst draft.** A persona per category (Security/Tech/Product) writes an answer with inline `[Source: <label> (Page N | Row N)]` citations. The LLM returns `AnalystDraft` (a single `answer_text` field). Code builds the full `Answer` (IDs, sheet, row, sources, status), so the model can't change bookkeeping fields.
+- **Analyst draft.** A persona per category (Security/Tech/Product) writes an answer with inline `[Source: <label> (Page N | Row N)]` citations. The LLM returns `AnalystDraft` (`answer_text`, then `answer_found`). Code builds the full `Answer` (IDs, sheet, row, sources, status), so the model can't change bookkeeping fields.
 - **Citation validation in code.** `parse_citations` pulls the cited labels out, and `check_citations` compares them with the chunks that were actually retrieved. No citations, an unknown file or a location that wasn't retrieved → redraft with the list of allowed labels. No LLM involved.
 - **LLM judge.** Sees the question, the retrieved context and the draft. It writes `reasoning` before `has_hallucination` and `feedback`. It is told how to read past-RFP rows ("Yes" supports the claim in that row's question, "No" contradicts it, guidance text is not evidence). Absence vs. inference rule: "the context does not specify X" is valid, while "X is implied to be 8" is a hallucination unless the context says so.
 - **Redraft.** The analyst gets its previous answer plus the judge's feedback and is told to fix only the flagged claims. Supported content stays.
@@ -91,7 +99,7 @@ Both diagrams are generated from the compiled graphs with `get_graph().draw_merm
 
 ### Demo knowledge base (LogistiComp)
 
-**Eval set v2.** 52 questions written for the fictional documents (`eval/eval_set_v2.xlsx`), each with an expected answer, expected status, a type (answerable, nuanced, deduction, partial, stale/policy conflict, unanswerable, leak check, past-RFP only), a dev (33) / held-out (19) split and the reference document. 6 are unanswerable. `eval/score_report.py` scores unanswerable rows in code (100 only if the agent refuses), the rest with the LLM judge, and also counts wrongful refusals and leaks (other customers' names in answers, other customers' files in citations).
+**Eval set v2.** 52 questions written for the fictional documents (`eval/eval_set_v2.xlsx`), each with an expected answer, expected status, a type (answerable, nuanced, deduction, partial, stale/policy conflict, unanswerable, leak check, past-RFP only), a dev (33) / held-out (19) split and the reference document. 6 are unanswerable. `eval/score_report.py` scores unanswerable rows in code (100 if the agent marks them `not_found` or `needs_review`), the rest with the LLM judge, and also counts wrongful refusals and leaks (other customers' names in answers, other customers' files in citations).
 
 **Judge.** gpt-6-luna, reasoning effort low (an alias with no dated snapshot). It returns `reasoning`, then `generated_verdict` (the answer's own yes/no reply to the question), then a score; code caps the score at 20 when the verdict contradicts an expected Yes/No. Validated by re-judging the same stored answers with `eval/rejudge.py` instead of trusting one run: gpt-4o-mini filled the verdict with "agrees with expected" and produced 8 false caps on 52 answers, so it was dropped as judge; after clarifying the field, gpt-6-luna capped only real contradictions ("not within 6 months", "not 10"). Judging the same answers twice differed by 0.8 points overall (max 10 per row), well below the run-to-run noise of the agent.
 
@@ -139,7 +147,10 @@ gpt-6-luna is the default: higher score, cheaper, no customer names in answers, 
 - **A docstring sent to the LLM.** A developer docstring on the Pydantic draft model became the JSON-schema description the model saw. On one question (password length), drafts over-claimed "minimum 8" in 26/26 runs with the docstring and 0/30 without it (runs interleaved). Fix: a comment instead of a docstring, plus snapshot tests over prompts and LLM-facing schemas (`tests/prompt_snapshots/`), so any byte change to what the model sees shows up in review.
 - **Judge contradicting itself.** With the verdict field first, the judge flagged a supported claim as unsupported, and its feedback quoted the context text that supports it. Fix: a `reasoning` field before `has_hallucination`, so the verdict follows the analysis. After the change the same answer was approved.
 - **MMR dropping the answer.** The password-length question kept failing. A retrieval diagnostic using the full question text showed the answer chunks at similarity ranks 3–4, removed by MMR λ=0.5 in favour of near-duplicate past-RFP rows. First fix: λ=0.7, checked offline first (both kinds of source returned), then in the eval, together with the judge changes: the question went from 0 to 90 in both runs. Later, on the demo knowledge base, a fact-recall check over the whole eval set (`eval/retrieval_eval.py`) showed MMR at λ=0.7 still dropping facts: similarity k=5 recall 44/46 vs MMR λ=0.7 40/46, at the same past-RFP count (after correcting EV-08's fact phrase). Retrieval now uses plain similarity.
-- **A flat score hiding a regression.** A prompt change told the analyst to use the "not found" message only when nothing in the context was relevant. "Not found" answers fell from about 14 to 2 and the score stayed flat, which looked like a win. Checking the rows showed that about 10 of the 14 unanswerable questions now got padded partial answers. The score couldn't see it because the evaluator skips rows whose expected answer is "not found". Fix: reverted the prompt and handled partial answers in code (`is_partial_fail_text` → `needs_review` with a note). Scoring those rows is on the roadmap.
+- **A flat score hiding a regression.** A prompt change told the analyst to use the "not found" message only when nothing in the context was relevant. "Not found" answers fell from about 14 to 2 and the score stayed flat, which looked like a win. Checking the rows showed that about 10 of the 14 unanswerable questions now got padded partial answers. The score couldn't see it because the evaluator skips rows whose expected answer is "not found". Fix: reverted the prompt and handled partial answers in code (`is_partial_fail_text` → `needs_review` with a note). Unanswerable rows are now scored in code (`eval/score_report.py`), so this kind of regression shows up in the score.
+- **Evaluating the evaluator.** A cap meant to catch answers that contradict an expected Yes/No fired on correct answers. Re-judging the same 52 stored answers with `eval/rejudge.py` (no agent re-run) showed gpt-4o-mini filling `generated_verdict` with "agrees with the expected answer" instead of the answer's own yes/no: 8 false caps, each turning a correct answer into 20. gpt-6-luna, with the field described as "the answer's own yes/no reply, ignoring the expected answer", capped only real contradictions. The same answers judged twice differed by 0.8 points overall.
+- **A wrong answer caused by retrieval, not reasoning.** EV-45 ("How quickly must your suppliers notify you of a security incident?") kept getting "48 hours". The supplier clause (24 hours) was the 5th most similar chunk, but MMR swapped it for a neighbouring chunk, and the other four chunks were all about LogistiComp notifying its own customers within 48 hours. The model answered faithfully from what it was given. With plain similarity retrieval EV-45 scored 100 in all 5 runs (20 before).
+- **Results from a stale backend.** One eval run showed the old judge's behaviour after the code had changed: a second uvicorn process on the same port (Windows allows it) was still serving code from an hour earlier. Every evaluated file now has a "Run info" sheet with agent model, judge model and settings, timestamp, and the git commit and start time read when the backend loaded its code, so a stale server shows up in the file.
 
 ## Run it
 
@@ -168,7 +179,8 @@ cd Frontend; npm install; cd ..
 #   (smoke.py, run_rfp.py, compare_excel.py switch tracing off)
 .\start.bat                          # backend :8000, frontend :8080; ingests new files in Backend/data/ on startup
 .\check.ps1                          # ruff (F rules) + pytest, no LLM or network calls
-.\venv\Scripts\python eval\smoke.py --step 6   # real LLM calls (<$0.01) on eval/fail_test.xlsx, PASS/FAIL per eval/SMOKE.md
+.\venv\Scripts\python eval\smoke.py --step 6 --model gpt-6-luna   # real LLM calls (<$0.01) on eval/fail_test.xlsx, PASS/FAIL per eval/SMOKE.md
+                                     # smoke.py defaults to gpt-4o-mini (keeps SMOKE.md baselines); --model gpt-6-luna tests the app default
 ```
 
 Other tools: `eval\run_rfp.py <file>` (any RFP through the pipeline, prints the agent log), `eval\compare_excel.py` (export vs. recorded baseline, cell by cell).
@@ -176,6 +188,8 @@ Other tools: `eval\run_rfp.py <file>` (any RFP through the pipeline, prints the 
 ## Project layout
 
 ```
+LICENSE
+.github/workflows/ci.yml   CI: ruff + pytest, Docker builds of backend and frontend
 docker-compose.yml   backend + frontend services
 Backend/Dockerfile   python:3.12-slim, uvicorn on :8000
 Backend/app/
@@ -192,10 +206,14 @@ Backend/app/
     nodes.py      node functions + routers
     graph.py      question subgraph, rfp graph
 Backend/tests/    pytest: pure functions, citations, ingest dedup on a temp Chroma, prompt snapshots
-eval/             eval set, smoke test, debug runner, Excel comparison, RESULTS.md
+eval/             eval sets, smoke test, debug runner, Excel comparison, run files, RESULTS.md
+  score_report.py    markdown report for evaluated runs (scores, refusals, review flags, leaks)
+  rejudge.py         re-judge stored answers with another judge model, no agent re-run
+  retrieval_eval.py  fact recall per retriever config, no LLM calls
 Frontend/src/components/   RfpSolver, KnowledgeBase, AccuracyEvaluator
 Frontend/Dockerfile  node build → nginx; nginx.conf serves the SPA shell
 docs/SPEC.md      design decisions with evidence, roadmap
+docs/screenshot.png  UI screenshot
 ```
 
 ## Roadmap
@@ -203,10 +221,9 @@ docs/SPEC.md      design decisions with evidence, roadmap
 - **Eval:** first version vs. current over 3 runs (mean + spread); `eval/` lint in `check.ps1` and CI (it has its own ruff errors today); fix `eval/compare_excel.py` (its stub graph returns answers without sheet/row, so every stubbed case fails).
 - **Chunking:** keep a section in one chunk and avoid intro-heavy chunks; EV-13 (hosting regions) is missed by every retriever because its sentence is split across chunks.
 - **Past-RFP safeguards:** prompt rule against copying other customers' names or other questionnaires' numbering; neutral display names for past-RFP sources in context and citations; code check that flags known customer names as `needs_review`.
-- **Judge model:** separate `JUDGE_MODEL` setting; A/B `gpt-4o-mini` against a stronger judge (it rejects valid absence statements inconsistently).
 - **Judge rules:** allow direct deductions (e.g. 12 months ≥ 3 months), forbid speculation.
 - **Citations:** claim-level check, meaning every factual sentence must carry a citation that supports it (absence statements excepted).
 - **Agent:** Literal schema for dropdown values; validate conflict-audit snippets in code.
 - **Ingestion:** skip past-RFP rows whose answer is a fail message; use real header rows for questionnaire columns.
 - **Tests:** graph integration tests with mocked LLMs.
-- **Infra:** streaming progress / background jobs, auth, Docker, configurable backend URL.
+- **Infra:** streaming progress / background jobs, auth, configurable backend URL; Azure deployment (Container Apps), CD from CI.
