@@ -89,3 +89,15 @@ Change: `AnalystDraft.answer_found`; false -> code writes FAIL_MSG (not_found), 
 
 ## 2026-11-08 score rule change: unanswerable rows
 From this commit `eval/score_report.py` counts an unanswerable row as handled (score 100) if the agent's status is `not_found` OR `needs_review` (a human sees it); before, only the fail text counted. Reason: `finalize_node` now flags absence statements ("X is not mentioned…") as `needs_review`. Status comes from the new "Answer status" column of evaluated files, inferred for older files (fail text -> not_found, review note -> needs_review). Older entries above use the old rule; re-run the report to compare.
+
+## 2026-11-08 final model comparison: gpt-6-luna + absence safety net
+Run: `Evaluated_v2_absence_luna_r1` (commit b8f970d, agent gpt-6-luna, judge gpt-6-luna, similarity k=5, answer_found + absence statements -> needs_review). Single run. Scored with the new unanswerable rule (not_found or needs_review = handled).
+
+- Overall 89.9 (dev 90.6, held_out 88.7).
+- Unanswerable handled 6/6 (3 not_found, 3 needs_review), 0 unflagged.
+- Answerable rows flagged needs_review: 9 = 6 expected partials (EV-06, 19, 26, 28, 37, 41), EV-46 (core fact missing, useful flag), 2 false alarms (EV-14, EV-27: side caveat, core answer complete).
+- Wrongful refusal: EV-13 only (retrieval miss). No customer names in answer text, no verdict caps. Rows < 60: EV-13 0, EV-23 55, EV-29 45, EV-46 55.
+- Cost (agent + judge, 52 questions): $0.035 vs $0.048 for gpt-4o-mini (mean of 2 runs).
+- Comparison gpt-4o-mini: 87.3 (86.9–87.7) over 2 runs (`Evaluated_v2_sim_mini_r1`, `Evaluated_v2_afound_mini_r1`), 6/6 refusals as not_found, EV-52 customer name in 1 of 2 runs.
+
+Decision: gpt-6-luna stays the default agent. Caveat: one Luna run (run-to-run noise is about ±2–5 points), and the gpt-4o-mini runs predate the absence safety net (which would only add needs_review flags for it, not refusals).

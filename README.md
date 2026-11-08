@@ -83,6 +83,7 @@ Both diagrams are generated from the compiled graphs with `get_graph().draw_merm
 - **LLM judge.** Sees the question, the retrieved context and the draft. It writes `reasoning` before `has_hallucination` and `feedback`. It is told how to read past-RFP rows ("Yes" supports the claim in that row's question, "No" contradicts it, guidance text is not evidence). Absence vs. inference rule: "the context does not specify X" is valid, while "X is implied to be 8" is a hallucination unless the context says so.
 - **Redraft.** The analyst gets its previous answer plus the judge's feedback and is told to fix only the flagged claims. Supported content stays.
 - **`needs_review` instead of discarding.** When revisions run out, the last draft is kept with a `review_note` (last judge feedback or invalid citations) and shows yellow. Before this change it was replaced by the "not found" message. Answers that are partly supported and partly "not found" are flagged the same way.
+- **Not found, decided in code.** The draft also returns `answer_found`; when it is false, code replaces the text with the standard "not found" message (status `not_found`) and keeps the model's wording in the review note. gpt-6-luna often words a refusal freely instead ("X is not mentioned in the available information"), which used to pass as a normal answer. `finalize` therefore checks the answer, citations removed, against a short list of absence phrases ("not mentioned / stated / specified", "does not mention", "no information", …) and marks it `needs_review` with a note, so a human confirms. On eval set v2 every unanswerable question then reached a human; about two answers per run are flagged needlessly (a side caveat in a complete answer).
 - **Status enum.** `answered | not_found | needs_review | error` is set by code in `finalize` and the error fallback. It drives the UI and Excel colours. A human edit in the UI sets `answered`.
 - **Ingestion dedup.** Files are identified by filename and versioned by a SHA-256 of their bytes, stored in chunk metadata together with `chunk_count`. Same hash and complete → skip. Same hash but incomplete → re-ingest. New hash → ingest the new version first and delete the old chunks only after that succeeds, so a failed replace never loses the old version. Startup and upload use the same `ingest()`.
 
@@ -96,15 +97,26 @@ Both diagrams are generated from the compiled graphs with `get_graph().draw_merm
 
 **Retrieval.** `eval/retrieval_eval.py` checks, without LLM calls, whether the chunks holding each question's expected fact are retrieved. Switching from MMR (λ=0.7) to plain similarity k=5 raised fact recall from 40 to 44 of 46 answerable questions, with the same number of past-RFP rows per question.
 
-**Current scores** (similarity k=5, judge gpt-6-luna; mean (min–max) over runs):
+**Current scores** (similarity k=5, judge gpt-6-luna; mean (min–max) over runs). Unanswerable rows count as handled if the agent marks them `not_found` or `needs_review`.
 
-| Agent | Runs | Overall | dev | held-out | Correct refusals | Customer name in answer text |
-|---|---|---|---|---|---|---|
-| gpt-4o-mini | 1 | 87.7 | 87.7 | 87.6 | 6/6 | 1 row |
-| gpt-6-luna | 2 | 82.0 (79.9–84.2) | 82.0 | 82.1 | 3/6 | 0 |
-| gpt-6-luna + `answer_found` | 2 | 80.7 (80.0–81.3) | 81.7 | 78.8 | 1.5/6 | 0 |
+| Agent | Runs | Overall | dev | held-out | Unanswerable handled | Answerable flagged for review | Customer name in answer text | Cost / run |
+|---|---|---|---|---|---|---|---|---|
+| gpt-4o-mini | 2 | 87.3 (86.9–87.7) | 87.7 | 86.7 | 6/6 | 0 | 1 row in 1 of 2 runs | $0.048 |
+| gpt-6-luna + absence safety net (default) | 1 | **89.9** | 90.6 | 88.7 | 6/6 (3 not_found, 3 needs_review) | 9 (6 expected partials, 1 useful, 2 false alarms) | 0 | $0.035 |
 
-gpt-4o-mini scores higher and refuses unanswerable questions; gpt-6-luna (the default) leaks no customer names but answers unanswerable questions with paraphrased refusals (see Roadmap). Differences of a few points are within run-to-run noise; gpt-4o-mini has one run. Full log: [eval/RESULTS.md](eval/RESULTS.md).
+| Type (dev n / held-out n) | gpt-4o-mini dev / held-out | gpt-6-luna dev / held-out |
+|---|---|---|
+| answerable (6/5) | 95.0 / 85.0 | 92.5 / 72.0 |
+| nuanced (5/3) | 84.0 / 68.3 | 81.0 / 81.7 |
+| stale conflict (1/1) | 95.0 / 85.0 | 100 / 85.0 |
+| deduction (5/3) | 82.5 / 100 | 96.0 / 100 |
+| partial (4/2) | 96.2 / 77.5 | 92.5 / 97.5 |
+| policy conflict (1/0) | 40.0 / – | 100 / – |
+| unanswerable (4/2) | 100 / 100 | 100 / 100 |
+| leak check (2/1) | 40.0 / 77.5 | 45.0 / 100 |
+| past-RFP only (5/2) | 98.0 / 100 | 98.0 / 100 |
+
+gpt-6-luna is the default: higher score, cheaper, no customer names in answers, and every unanswerable question reaches a human. Caveats: one gpt-6-luna run (run-to-run noise is a few points), and the gpt-4o-mini runs predate the absence safety net. Full log: [eval/RESULTS.md](eval/RESULTS.md).
 
 ### Original private knowledge base
 
@@ -189,7 +201,6 @@ docs/SPEC.md      design decisions with evidence, roadmap
 ## Roadmap
 
 - **Eval:** first version vs. current over 3 runs (mean + spread); `eval/` lint in `check.ps1` and CI (it has its own ruff errors today); fix `eval/compare_excel.py` (its stub graph returns answers without sheet/row, so every stubbed case fails).
-- **Absence statements:** answers that only say something is "not mentioned / stated / specified" become `needs_review` in code. gpt-6-luna paraphrases refusals this way and `answer_found` does not catch them when it adds a related fact.
 - **Chunking:** keep a section in one chunk and avoid intro-heavy chunks; EV-13 (hosting regions) is missed by every retriever because its sentence is split across chunks.
 - **Past-RFP safeguards:** prompt rule against copying other customers' names or other questionnaires' numbering; neutral display names for past-RFP sources in context and citations; code check that flags known customer names as `needs_review`.
 - **Judge model:** separate `JUDGE_MODEL` setting; A/B `gpt-4o-mini` against a stronger judge (it rejects valid absence statements inconsistently).

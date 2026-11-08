@@ -91,7 +91,7 @@ DataFrame removed from graph state; `report` returns `Answer` objects, `excel_io
 - **Infra/API:** streaming progress / background jobs; API redesign; auth, Docker; configurable backend URL in frontend.
 - **Upload:** response reports per-file status (partial failures are only in logs today).
 - **Tests:** graph integration tests with mocked LLMs.
-- **Absence statements:** answers that only state something is "not mentioned / stated / specified" -> `needs_review` in code. Evidence: gpt-6-luna paraphrases refusals (EV-10, 22, 44 answered in both Luna runs) and sets `answer_found=true` when it adds a related fact (eval/RESULTS.md, answer_found entry).
+- ~~**Absence statements:** answers that only state something is "not mentioned / stated / specified" -> `needs_review` in code.~~ Done (7b487e0): 6/6 unanswerable handled, eval/RESULTS.md final model comparison. Evidence: gpt-6-luna paraphrases refusals (EV-10, 22, 44 answered in both Luna runs) and sets `answer_found=true` when it adds a related fact (eval/RESULTS.md, answer_found entry).
 - **Chunking:** EV-13 hosting regions: section split across chunks, sentence sits in an intro-heavy chunk (similarity rank 41); missed by every retriever config.
 - **compare_excel.py:** stub graph returns answers without sheet/row -> every stubbed case 500s `(None, None)`; fix the stub, then re-check the baseline.
 - **Lint eval/:** add `eval/` to `check.ps1` and CI (5 existing ruff errors in compare_excel.py, run_rfp.py, smoke.py).
