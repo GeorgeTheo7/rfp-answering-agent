@@ -30,7 +30,7 @@ Intended colour changes since the baseline are listed cell by cell in `FILL_CHAN
 | Check | Steps 1–3 | Step 4–5 | Step 6+ |
 |---|---|---|---|
 | Password | answered: not FAIL_MSG, ≥1 citation (usually LC-POL-002 Access Control and Password Policy.pdf — not asserted) | same | same |
-| Password text | – | – | must contain "8 characters" (since λ=0.7; informational, printed as `INFO`, not asserted) |
+| Password text | – | – | must contain "8 characters" (retrieval: plain similarity k=5; informational, printed as `INFO`, not asserted) |
 | Shoe size | FAIL_MSG, red | same (5b: status `not_found`) | same |
 | Removable media | answered: not FAIL_MSG, ≥1 citation (usually LC-POL-010 Removable Media Policy.pdf — not asserted) | same | same |
 | Dropdown | value from Yes/No/Partial | same | same |
