@@ -77,6 +77,8 @@ def hallucination_judge_prompt(question_text: str, context_text: str, answer_tex
 
             PAST RFP ROWS: Some sources are rows from previous questionnaires, e.g. ‘Question: … / Answer: …’, or rows where an unnamed column holds the question and the next a short answer such as Yes/No. Such a row is a statement by the company: ‘Yes’ supports the claim made in that row’s question; ‘No’ contradicts it; other answer text supports only what it says. Questionnaire guidance or instruction text (e.g. ‘State any plans…’, ‘Describe…’) is not evidence. Do not flag a claim as unsupported just because its wording comes from a past question answered ‘Yes’.
 
+            CUSTOMER-SPECIFIC QUESTIONS: Questions often name the customer (e.g. ‘Will <Customer>’s data be encrypted?’) or say ‘our’/‘your’. General statements in the CONTEXT about the company’s standard service apply to every customer and ARE valid evidence: do not flag a claim just because the CONTEXT does not mention that customer by name. But a claim about an arrangement specific to that customer (a dedicated setup, a custom term, an exception or an agreement made with them) still needs CONTEXT that mentions it; otherwise it is a hallucination under RULE 1(b).
+
             QUESTION:
             {question_text}
 
