@@ -1,6 +1,6 @@
 """Re-judge an Evaluated_*.xlsx with another judge model, without re-running the agent.
 Real LLM calls (judge only). Run: .\\venv\\Scripts\\python eval\\rejudge.py <Evaluated_*.xlsx> <judge model>
-<judge model> must be a key of JUDGE_MODELS in Backend/app/config.py. For every row with a question and an
+<judge model> must be a key of MODEL_SETTINGS in Backend/app/config.py. For every row with a question and an
 expected answer (as in /api/rfp/evaluate), run_llm_judge compares the existing Answer with the Expected Answer;
 LLM Score / LLM Reasoning are overwritten, everything else (columns, Cost ($), colours) is kept.
 Writes <input>_rejudged_<model>.xlsx next to the input and prints the total judge cost.
@@ -14,7 +14,7 @@ import openpyxl
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, os.path.join(ROOT, "Backend"))
-from app.config import JUDGE_MODELS
+from app.config import MODEL_SETTINGS
 from app.evaluation import run_llm_judge
 
 REQUIRED = ["Question", "Expected Answer", "Answer", "LLM Score", "LLM Reasoning"]
@@ -31,8 +31,8 @@ def output_path(input_path: str, model: str) -> str:
 
 def rejudge(input_path: str, model: str, workers: int = 5) -> tuple[str, float, int]:
     """(output path, total judge cost, rows judged)."""
-    if model not in JUDGE_MODELS:
-        raise ValueError(f"Unknown judge model {model!r}; choose one of {list(JUDGE_MODELS)}")
+    if model not in MODEL_SETTINGS:
+        raise ValueError(f"Unknown judge model {model!r}; choose one of {list(MODEL_SETTINGS)}")
     wb = openpyxl.load_workbook(input_path)
     jobs = []  # (sheet, row number, header->column index, question, answer, expected)
     for ws in wb.worksheets:

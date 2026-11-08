@@ -93,6 +93,7 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
   const AI_MODELS = [
     { id: "gpt-4o-mini", name: "GPT-4o Mini", cost: "Low", speed: "Fast" },
     { id: "gpt-5-mini", name: "GPT-5 Mini", cost: "Medium", speed: "Fast" },
+    { id: "gpt-6-luna", name: "GPT-6 Luna", cost: "Low", speed: "Medium" },
   ];
 
   const handleEvaluate = async () => {

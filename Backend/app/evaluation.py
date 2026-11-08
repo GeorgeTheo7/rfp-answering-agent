@@ -2,12 +2,11 @@ import re
 from typing import Literal, Optional
 
 from pydantic import BaseModel, Field
-from langchain_openai import ChatOpenAI
 from langchain_community.callbacks.manager import get_openai_callback
 
-from app.agent.nodes import calculate_cost, _canonical_value
+from app.agent.nodes import calculate_cost, chat_model, _canonical_value
 from app.agent.prompts import evaluation_judge_prompt
-from app.config import JUDGE_MODEL, JUDGE_MODELS
+from app.config import JUDGE_MODEL
 
 # ==========================================
 # 6. LLM JUDGE (ACCURACY EVALUATOR)
@@ -44,10 +43,10 @@ def apply_verdict_cap(output: JudgeOutput, expected_answer: str) -> EvaluationRe
     return EvaluationResult(score=score, reasoning=reasoning)
 
 def run_llm_judge(question: str, generated_answer: str, expected_answer: str, judge_model: Optional[str] = None):
-    """JUDGE_MODEL (or judge_model, a JUDGE_MODELS key, for eval/rejudge.py) with its JUDGE_MODELS settings;
+    """JUDGE_MODEL (or judge_model, a MODEL_SETTINGS key, for eval/rejudge.py) with its MODEL_SETTINGS;
     never the agent's model."""
     model = judge_model or JUDGE_MODEL
-    llm = ChatOpenAI(model=model, max_retries=5, timeout=60, **JUDGE_MODELS[model])
+    llm = chat_model(model, timeout=60)
     structured_llm = llm.with_structured_output(JudgeOutput)
 
     prompt = evaluation_judge_prompt(question, generated_answer, expected_answer)

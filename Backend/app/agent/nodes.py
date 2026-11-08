@@ -9,7 +9,7 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from langgraph.types import Send
 
 from app.config import (
-    EXCEL_EXTENSIONS, FAIL_MSG, FAIL_MSG_PREFIX, MAX_REVISIONS, MMR_LAMBDA, MODEL_PRICING, OLD_FAIL_MSG_PREFIX,
+    EXCEL_EXTENSIONS, FAIL_MSG, FAIL_MSG_PREFIX, MAX_REVISIONS, MMR_LAMBDA, MODEL_PRICING, MODEL_SETTINGS, OLD_FAIL_MSG_PREFIX,
     RETRIEVAL_FETCH_K, RETRIEVAL_K,
 )
 from app.store import get_vectorstore
@@ -27,6 +27,12 @@ from app.agent.schemas import (
 # 1. SETUP
 # ==========================================
 load_dotenv()
+
+def chat_model(model_name: str, timeout: int) -> ChatOpenAI:
+    """Every LLM client (agent and evaluator judge): the model with its MODEL_SETTINGS."""
+    if model_name not in MODEL_SETTINGS:
+        raise ValueError(f"Unknown model {model_name!r}; add it to MODEL_SETTINGS in config.py")
+    return ChatOpenAI(model=model_name, max_retries=5, timeout=timeout, **MODEL_SETTINGS[model_name])
 
 def calculate_cost(model_name: str, cb) -> float:
     """Single source of truth for token cost.
@@ -57,7 +63,7 @@ def classify_statuses(question: "Question", answer_text: str, specs: List["Statu
         return {}
     valid_map = {s.column: s.allowed_values for s in specs}
 
-    llm = ChatOpenAI(model=model_name, temperature=0, max_retries=5, timeout=60)
+    llm = chat_model(model_name, timeout=60)
     classifier = llm.with_structured_output(StatusChoices)
     result = classifier.invoke(status_classifier_prompt(question.text, answer_text, specs))
 
@@ -135,7 +141,7 @@ def extract_questions_node(state: RFPGraphState):
         loader = PyMuPDFLoader(input_path)
         docs = loader.load()
         full_text = "\n".join([doc.page_content for doc in docs])
-        dynamic_llm = ChatOpenAI(model=chosen_model, temperature=0, max_retries=5, timeout=120)
+        dynamic_llm = chat_model(chosen_model, timeout=120)
         structured_llm = dynamic_llm.with_structured_output(RFPQuestions)
         result = structured_llm.invoke(pdf_extraction_prompt(full_text))
         # PDFs have no dropdown columns or rows -> system fields keep their defaults.
@@ -151,7 +157,7 @@ def extract_questions_node(state: RFPGraphState):
 # Wired in graph.py.
 # ==========================================
 def _llm(state: QuestionState) -> ChatOpenAI:
-    return ChatOpenAI(model=state["selected_model"], temperature=0, max_retries=5, timeout=90)
+    return chat_model(state["selected_model"], timeout=90)
 
 def retrieve_node(state: QuestionState):
     question = state["question"]

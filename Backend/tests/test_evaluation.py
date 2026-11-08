@@ -6,7 +6,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import api, evaluation
-from app.config import JUDGE_MODEL, JUDGE_MODELS, MODEL_PRICING
+from app.agent import nodes
+from app.config import JUDGE_MODEL, MODEL_PRICING, MODEL_SETTINGS
 from app.main import app
 
 
@@ -24,7 +25,7 @@ def test_judge_uses_pinned_model_at_temperature_0_and_prices_it(monkeypatch):
         yield SimpleNamespace(prompt_tokens=1_000_000, completion_tokens=1_000_000, total_cost=99.0)
 
     monkeypatch.setattr(evaluation, "JUDGE_MODEL", "gpt-4o-mini-2024-07-18")
-    monkeypatch.setattr(evaluation, "ChatOpenAI", fake_chat)
+    monkeypatch.setattr(nodes, "ChatOpenAI", fake_chat)
     monkeypatch.setattr(evaluation, "get_openai_callback", fake_callback)
 
     result, cost = evaluation.run_llm_judge("q", "generated", "Yes, within 6 months.")
@@ -94,8 +95,8 @@ def test_no_cap(verdict, score, expected):
 
 
 def test_every_judge_model_is_priced_and_the_default_is_configured():
-    assert JUDGE_MODEL == "gpt-6-luna" and JUDGE_MODEL in JUDGE_MODELS
-    assert all(model in MODEL_PRICING for model in JUDGE_MODELS)
+    assert JUDGE_MODEL == "gpt-6-luna" and JUDGE_MODEL in MODEL_SETTINGS
+    assert all(model in MODEL_PRICING for model in MODEL_SETTINGS)
 
 
 def test_switching_judge_to_gpt_6_luna_uses_its_settings_and_price(monkeypatch):
@@ -111,7 +112,7 @@ def test_switching_judge_to_gpt_6_luna_uses_its_settings_and_price(monkeypatch):
         yield SimpleNamespace(prompt_tokens=1_000_000, completion_tokens=1_000_000, total_cost=99.0)
 
     monkeypatch.setattr(evaluation, "JUDGE_MODEL", "gpt-6-luna")
-    monkeypatch.setattr(evaluation, "ChatOpenAI", fake_chat)
+    monkeypatch.setattr(nodes, "ChatOpenAI", fake_chat)
     monkeypatch.setattr(evaluation, "get_openai_callback", fake_callback)
 
     result, cost = evaluation.run_llm_judge("q", "generated", "Yes.")
