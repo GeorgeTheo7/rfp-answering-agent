@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import api, evaluation
-from app.config import JUDGE_MODEL
+from app.config import JUDGE_MODEL, JUDGE_MODELS, MODEL_PRICING
 from app.main import app
 
 
@@ -77,7 +77,8 @@ def _judged(verdict, score, expected):
 @pytest.mark.parametrize("verdict,expected", [("no", "Yes. Within 6 months."), ("yes", "No, not yet.")])
 def test_opposite_verdict_caps_score_at_20_and_says_why(verdict, expected):
     result = _judged(verdict, 80, expected)
-    assert result.score == 20 and "Capped at 20" in result.reasoning
+    assert result.score == 20
+    assert result.reasoning == f"r [verdict: {verdict}] [Capped at 20: expected '{'yes' if verdict == 'no' else 'no'}', generated '{verdict}'.]"
 
 
 @pytest.mark.parametrize("verdict,score,expected", [
@@ -88,4 +89,32 @@ def test_opposite_verdict_caps_score_at_20_and_says_why(verdict, expected):
 ])
 def test_no_cap(verdict, score, expected):
     result = _judged(verdict, score, expected)
-    assert result.score == score and result.reasoning == "r"
+    assert result.score == score and result.reasoning == f"r [verdict: {verdict}]"
+
+
+def test_every_judge_model_is_priced_and_the_default_is_configured():
+    assert JUDGE_MODEL == "gpt-4o-mini-2024-07-18" and JUDGE_MODEL in JUDGE_MODELS
+    assert all(model in MODEL_PRICING for model in JUDGE_MODELS)
+
+
+def test_switching_judge_to_gpt_6_luna_uses_its_settings_and_price(monkeypatch):
+    seen = {}
+
+    def fake_chat(**kwargs):
+        seen.update(kwargs)
+        result = evaluation.JudgeOutput(reasoning="ok", generated_verdict="yes", score=90)
+        return SimpleNamespace(with_structured_output=lambda schema: SimpleNamespace(invoke=lambda prompt: result))
+
+    @contextmanager
+    def fake_callback():
+        yield SimpleNamespace(prompt_tokens=1_000_000, completion_tokens=1_000_000, total_cost=99.0)
+
+    monkeypatch.setattr(evaluation, "JUDGE_MODEL", "gpt-6-luna")
+    monkeypatch.setattr(evaluation, "ChatOpenAI", fake_chat)
+    monkeypatch.setattr(evaluation, "get_openai_callback", fake_callback)
+
+    result, cost = evaluation.run_llm_judge("q", "generated", "Yes.")
+
+    assert seen["model"] == "gpt-6-luna" and seen["reasoning_effort"] == "none" and seen["temperature"] == 0
+    assert result.score == 90 and result.reasoning == "ok [verdict: yes]"
+    assert cost == 0.10 + 0.50

@@ -24,14 +24,22 @@ RETRIEVAL_K = 5
 RETRIEVAL_FETCH_K = 20
 MMR_LAMBDA = 0.7
 
-# Evaluator judge only (the agent uses the model sent with the upload). Pinned snapshot so scores stay
-# comparable across runs.
+# Evaluator judge only (the agent uses the model sent with the upload). Switch by setting JUDGE_MODEL to
+# a key of JUDGE_MODELS; the value is the extra ChatOpenAI settings for that model. Use a dated snapshot
+# where one exists, so scores stay comparable across runs.
+JUDGE_MODELS = {
+    "gpt-4o-mini-2024-07-18": {"temperature": 0},
+    # No dated snapshot exists (OpenAI model page, 2026-11-08). Reasoning model: temperature 0 is rejected
+    # at the default effort but accepted with reasoning_effort "none" (lowest).
+    "gpt-6-luna": {"reasoning_effort": "none", "temperature": 0},
+}
 JUDGE_MODEL = "gpt-4o-mini-2024-07-18"
 
 # OpenAI prices ($ per 1,000,000 tokens): (input, output)
 MODEL_PRICING = {
     "gpt-4o-mini": (0.15, 0.60),
     "gpt-4o-mini-2024-07-18": (0.15, 0.60),
+    "gpt-6-luna": (0.10, 0.50),
     "gpt-5-mini":  (0.25, 2.00),
 }
 

@@ -7,7 +7,7 @@ from langchain_community.callbacks.manager import get_openai_callback
 
 from app.agent.nodes import calculate_cost, _canonical_value
 from app.agent.prompts import evaluation_judge_prompt
-from app.config import JUDGE_MODEL
+from app.config import JUDGE_MODEL, JUDGE_MODELS
 
 # ==========================================
 # 6. LLM JUDGE (ACCURACY EVALUATOR)
@@ -33,9 +33,10 @@ def expected_verdict(expected_answer: str) -> Optional[str]:
     return match.group(1).lower() if match else None
 
 def apply_verdict_cap(output: JudgeOutput, expected_answer: str) -> EvaluationResult:
-    """Score capped at VERDICT_CAP when the verdicts are opposite (yes vs no). "neither" never caps."""
+    """Score capped at VERDICT_CAP when the verdicts are opposite (yes vs no). "neither" never caps.
+    The judge's verdict is always appended to the reasoning."""
     expected = expected_verdict(expected_answer)
-    score, reasoning = output.score, output.reasoning
+    score, reasoning = output.score, f"{output.reasoning} [verdict: {output.generated_verdict}]"
     opposite = expected and output.generated_verdict in ("yes", "no") and output.generated_verdict != expected
     if opposite and score > VERDICT_CAP:
         score = VERDICT_CAP
@@ -43,8 +44,8 @@ def apply_verdict_cap(output: JudgeOutput, expected_answer: str) -> EvaluationRe
     return EvaluationResult(score=score, reasoning=reasoning)
 
 def run_llm_judge(question: str, generated_answer: str, expected_answer: str):
-    """Always JUDGE_MODEL, never the agent's model."""
-    llm = ChatOpenAI(model=JUDGE_MODEL, temperature=0, max_retries=5, timeout=60)
+    """Always JUDGE_MODEL (with its JUDGE_MODELS settings), never the agent's model."""
+    llm = ChatOpenAI(model=JUDGE_MODEL, max_retries=5, timeout=60, **JUDGE_MODELS[JUDGE_MODEL])
     structured_llm = llm.with_structured_output(JudgeOutput)
 
     prompt = evaluation_judge_prompt(question, generated_answer, expected_answer)
