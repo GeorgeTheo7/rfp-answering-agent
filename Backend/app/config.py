@@ -30,10 +30,10 @@ MMR_LAMBDA = 0.7
 JUDGE_MODELS = {
     "gpt-4o-mini-2024-07-18": {"temperature": 0},
     # No dated snapshot exists (OpenAI model page, 2026-11-08). Reasoning model: temperature 0 is rejected
-    # at the default effort but accepted with reasoning_effort "none" (lowest).
-    "gpt-6-luna": {"reasoning_effort": "none", "temperature": 0},
+    # at the default effort. Effort "none" missed opposite Yes/No verdicts in a probe; "low" caught them.
+    "gpt-6-luna": {"reasoning_effort": "low"},
 }
-JUDGE_MODEL = "gpt-4o-mini-2024-07-18"
+JUDGE_MODEL = "gpt-6-luna"  # gpt-4o-mini misuses generated_verdict (eval/RESULTS.md)
 
 # OpenAI prices ($ per 1,000,000 tokens): (input, output)
 MODEL_PRICING = {

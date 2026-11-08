@@ -23,12 +23,13 @@ def test_judge_uses_pinned_model_at_temperature_0_and_prices_it(monkeypatch):
     def fake_callback():
         yield SimpleNamespace(prompt_tokens=1_000_000, completion_tokens=1_000_000, total_cost=99.0)
 
+    monkeypatch.setattr(evaluation, "JUDGE_MODEL", "gpt-4o-mini-2024-07-18")
     monkeypatch.setattr(evaluation, "ChatOpenAI", fake_chat)
     monkeypatch.setattr(evaluation, "get_openai_callback", fake_callback)
 
     result, cost = evaluation.run_llm_judge("q", "generated", "Yes, within 6 months.")
 
-    assert (seen["model"], seen["temperature"]) == (JUDGE_MODEL, 0)
+    assert (seen["model"], seen["temperature"]) == ("gpt-4o-mini-2024-07-18", 0)
     assert seen["schema"] is evaluation.JudgeOutput
     assert result.score == 20  # verdict "no" vs expected "Yes": capped
     assert cost == 0.15 + 0.60  # MODEL_PRICING, not the callback's total_cost
@@ -93,7 +94,7 @@ def test_no_cap(verdict, score, expected):
 
 
 def test_every_judge_model_is_priced_and_the_default_is_configured():
-    assert JUDGE_MODEL == "gpt-4o-mini-2024-07-18" and JUDGE_MODEL in JUDGE_MODELS
+    assert JUDGE_MODEL == "gpt-6-luna" and JUDGE_MODEL in JUDGE_MODELS
     assert all(model in MODEL_PRICING for model in JUDGE_MODELS)
 
 
@@ -115,6 +116,6 @@ def test_switching_judge_to_gpt_6_luna_uses_its_settings_and_price(monkeypatch):
 
     result, cost = evaluation.run_llm_judge("q", "generated", "Yes.")
 
-    assert seen["model"] == "gpt-6-luna" and seen["reasoning_effort"] == "none" and seen["temperature"] == 0
+    assert seen["model"] == "gpt-6-luna" and seen["reasoning_effort"] == "low" and "temperature" not in seen
     assert result.score == 90 and result.reasoning == "ok [verdict: yes]"
     assert cost == 0.10 + 0.50

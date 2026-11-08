@@ -198,7 +198,7 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
             <div className="bg-muted/30 p-4 rounded-xl border border-border mt-4">
               <label className="block text-sm font-medium text-foreground mb-2 flex items-center gap-2">
                 <Bot className="h-4 w-4 text-primary" />
-                Agent Model (judge is fixed: gpt-4o-mini-2024-07-18)
+                Agent Model (judge is fixed: gpt-6-luna)
               </label>
               <select
                 value={selectedModel}

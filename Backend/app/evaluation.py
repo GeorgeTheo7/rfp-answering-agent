@@ -43,16 +43,18 @@ def apply_verdict_cap(output: JudgeOutput, expected_answer: str) -> EvaluationRe
         reasoning += f" [Capped at {VERDICT_CAP}: expected '{expected}', generated '{output.generated_verdict}'.]"
     return EvaluationResult(score=score, reasoning=reasoning)
 
-def run_llm_judge(question: str, generated_answer: str, expected_answer: str):
-    """Always JUDGE_MODEL (with its JUDGE_MODELS settings), never the agent's model."""
-    llm = ChatOpenAI(model=JUDGE_MODEL, max_retries=5, timeout=60, **JUDGE_MODELS[JUDGE_MODEL])
+def run_llm_judge(question: str, generated_answer: str, expected_answer: str, judge_model: Optional[str] = None):
+    """JUDGE_MODEL (or judge_model, a JUDGE_MODELS key, for eval/rejudge.py) with its JUDGE_MODELS settings;
+    never the agent's model."""
+    model = judge_model or JUDGE_MODEL
+    llm = ChatOpenAI(model=model, max_retries=5, timeout=60, **JUDGE_MODELS[model])
     structured_llm = llm.with_structured_output(JudgeOutput)
 
     prompt = evaluation_judge_prompt(question, generated_answer, expected_answer)
     try:
         with get_openai_callback() as cb:
             output = structured_llm.invoke(prompt)
-            eval_cost = calculate_cost(JUDGE_MODEL, cb)
+            eval_cost = calculate_cost(model, cb)
         return apply_verdict_cap(output, expected_answer), eval_cost
     except Exception as e:
         return EvaluationResult(score=0, reasoning=f"Error evaluating: {str(e)}"), 0.0
