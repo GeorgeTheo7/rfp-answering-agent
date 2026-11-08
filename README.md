@@ -88,7 +88,27 @@ Both diagrams are generated from the compiled graphs with `get_graph().draw_merm
 
 ## Evaluation
 
-*All numbers below were measured on the original private knowledge base and eval set, not on the LogistiComp demo data.*
+### Demo knowledge base (LogistiComp)
+
+**Eval set v2.** 52 questions written for the fictional documents (`eval/eval_set_v2.xlsx`), each with an expected answer, expected status, a type (answerable, nuanced, deduction, partial, stale/policy conflict, unanswerable, leak check, past-RFP only), a dev (33) / held-out (19) split and the reference document. 6 are unanswerable. `eval/score_report.py` scores unanswerable rows in code (100 only if the agent refuses), the rest with the LLM judge, and also counts wrongful refusals and leaks (other customers' names in answers, other customers' files in citations).
+
+**Judge.** gpt-6-luna, reasoning effort low (an alias with no dated snapshot). It returns `reasoning`, then `generated_verdict` (the answer's own yes/no reply to the question), then a score; code caps the score at 20 when the verdict contradicts an expected Yes/No. Validated by re-judging the same stored answers with `eval/rejudge.py` instead of trusting one run: gpt-4o-mini filled the verdict with "agrees with expected" and produced 8 false caps on 52 answers, so it was dropped as judge; after clarifying the field, gpt-6-luna capped only real contradictions ("not within 6 months", "not 10"). Judging the same answers twice differed by 0.8 points overall (max 10 per row), well below the run-to-run noise of the agent.
+
+**Retrieval.** `eval/retrieval_eval.py` checks, without LLM calls, whether the chunks holding each question's expected fact are retrieved. Switching from MMR (λ=0.7) to plain similarity k=5 raised fact recall from 40 to 44 of 46 answerable questions, with the same number of past-RFP rows per question.
+
+**Current scores** (similarity k=5, judge gpt-6-luna; mean (min–max) over runs):
+
+| Agent | Runs | Overall | dev | held-out | Correct refusals | Customer name in answer text |
+|---|---|---|---|---|---|---|
+| gpt-4o-mini | 1 | 87.7 | 87.7 | 87.6 | 6/6 | 1 row |
+| gpt-6-luna | 2 | 82.0 (79.9–84.2) | 82.0 | 82.1 | 3/6 | 0 |
+| gpt-6-luna + `answer_found` | 2 | 80.7 (80.0–81.3) | 81.7 | 78.8 | 1.5/6 | 0 |
+
+gpt-4o-mini scores higher and refuses unanswerable questions; gpt-6-luna (the default) leaks no customer names but answers unanswerable questions with paraphrased refusals (see Roadmap). Differences of a few points are within run-to-run noise; gpt-4o-mini has one run. Full log: [eval/RESULTS.md](eval/RESULTS.md).
+
+### Original private knowledge base
+
+*The numbers in this subsection were measured on the original private knowledge base and eval set, not on the LogistiComp demo data.*
 
 **Method.** An eval set of 47 questions with expected answers. The evaluator runs the agent and has an LLM judge score each answer 0–100 against the expected one (dropdown columns are compared as exact category matches). Rows whose expected answer is "not found" are skipped, so n=33 are scored. A repeat run with nothing changed differed by ~5 points, so a setting is judged on the average of ≥2 runs, not on one run.
 
@@ -100,7 +120,7 @@ Both diagrams are generated from the compiled graphs with `get_graph().draw_merm
 **Known limitations.**
 - Expected answers are old agent outputs that nobody has reviewed (several rows are known to be wrong), so the score measures agreement with the agent's first version, not accuracy.
 - Rows with an expected "not found" are skipped, so the evaluator can't see an agent that answers questions it shouldn't.
-- Judge: gpt-6-luna, reasoning effort low. It is an alias with no dated snapshot, so OpenAI can change it under us; one judge model only. The eval set is small.
+- One judge model, and the private eval set is small.
 
 ## Engineering notes
 
@@ -168,7 +188,9 @@ docs/SPEC.md      design decisions with evidence, roadmap
 
 ## Roadmap
 
-- **Eval:** review the eval set and add an "answerable" column; score not-found rows instead of skipping them; pin the judge model; first version vs. current over 3 runs (mean + spread).
+- **Eval:** first version vs. current over 3 runs (mean + spread); `eval/` lint in `check.ps1` and CI (it has its own ruff errors today); fix `eval/compare_excel.py` (its stub graph returns answers without sheet/row, so every stubbed case fails).
+- **Absence statements:** answers that only say something is "not mentioned / stated / specified" become `needs_review` in code. gpt-6-luna paraphrases refusals this way and `answer_found` does not catch them when it adds a related fact.
+- **Chunking:** keep a section in one chunk and avoid intro-heavy chunks; EV-13 (hosting regions) is missed by every retriever because its sentence is split across chunks.
 - **Past-RFP safeguards:** prompt rule against copying other customers' names or other questionnaires' numbering; neutral display names for past-RFP sources in context and citations; code check that flags known customer names as `needs_review`.
 - **Judge model:** separate `JUDGE_MODEL` setting; A/B `gpt-4o-mini` against a stronger judge (it rejects valid absence statements inconsistently).
 - **Judge rules:** allow direct deductions (e.g. 12 months ≥ 3 months), forbid speculation.

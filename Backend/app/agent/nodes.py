@@ -9,7 +9,7 @@ from langchain_community.document_loaders import PyMuPDFLoader
 from langgraph.types import Send
 
 from app.config import (
-    EXCEL_EXTENSIONS, FAIL_MSG, FAIL_MSG_PREFIX, MAX_REVISIONS, MMR_LAMBDA, MODEL_PRICING, MODEL_SETTINGS, OLD_FAIL_MSG_PREFIX,
+    DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS, FAIL_MSG, FAIL_MSG_PREFIX, MAX_REVISIONS, MMR_LAMBDA, MODEL_PRICING, MODEL_SETTINGS, OLD_FAIL_MSG_PREFIX,
     RETRIEVAL_FETCH_K, RETRIEVAL_K, RETRIEVAL_SEARCH_TYPE,
 )
 from app.store import get_vectorstore
@@ -89,7 +89,7 @@ def classify_statuses(question: "Question", answer_text: str, specs: List["Statu
 # ==========================================
 def extract_questions_node(state: RFPGraphState):
     input_path = state["rfp_input_path"]
-    chosen_model = state.get("selected_model", "gpt-4o-mini")
+    chosen_model = state.get("selected_model", DEFAULT_AGENT_MODEL)
     print(f"\n--- [NODE] READING QUESTIONS FROM: {input_path} (Model: {chosen_model}) ---")
     questions = []
 
@@ -403,7 +403,7 @@ def finalize_node(state: QuestionState):
 
 def route_questions(state: RFPGraphState):
     questions = state.get("extracted_questions", [])
-    model_name = state.get("selected_model", "gpt-4o-mini")
+    model_name = state.get("selected_model", DEFAULT_AGENT_MODEL)
     return [Send("answer_node", {"question": q, "selected_model": model_name}) for q in questions]
 
 def generate_final_report_node(state: RFPGraphState):

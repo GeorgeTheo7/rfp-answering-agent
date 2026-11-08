@@ -66,7 +66,7 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
   });
 
   const [selectedModel, setSelectedModel] = useState(() => {
-    return sessionStorage.getItem("eval_model") || "gpt-4o-mini";
+    return sessionStorage.getItem("eval_model") || "gpt-6-luna";
   });
 
   const [isOpenAiAvailable, setIsOpenAiAvailable] = useState(true);

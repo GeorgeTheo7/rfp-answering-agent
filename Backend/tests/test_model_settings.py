@@ -58,3 +58,8 @@ def test_pdf_extraction_uses_the_selected_model_settings(clients, monkeypatch):
     monkeypatch.setattr(nodes, "PyMuPDFLoader", lambda path: SimpleNamespace(load=lambda: []))
     nodes.extract_questions_node({"rfp_input_path": "rfp.pdf", "selected_model": "gpt-6-luna"})
     assert clients.made[-1]["model"] == "gpt-6-luna" and "temperature" not in clients.made[-1]
+
+
+def test_default_agent_model_is_gpt_6_luna_and_configured():
+    from app.config import DEFAULT_AGENT_MODEL
+    assert DEFAULT_AGENT_MODEL == "gpt-6-luna" and DEFAULT_AGENT_MODEL in MODEL_SETTINGS

@@ -37,6 +37,9 @@ MODEL_SETTINGS = {
     "gpt-6-luna": {"reasoning_effort": "low"},
 }
 
+# Agent model when a request names none (the UI pickers default to the same model).
+DEFAULT_AGENT_MODEL = "gpt-6-luna"
+
 # Evaluator judge only (the agent uses the model sent with the upload); a key of MODEL_SETTINGS. Use a dated
 # snapshot where one exists, so scores stay comparable across runs.
 JUDGE_MODEL = "gpt-6-luna"  # gpt-4o-mini misuses generated_verdict (eval/RESULTS.md)

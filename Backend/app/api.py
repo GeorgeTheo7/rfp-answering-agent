@@ -14,7 +14,7 @@ from app.agent.nodes import is_fail_text
 from app.agent.schemas import Answer, Status
 from app.evaluation import run_info, run_llm_judge, categorical_eval
 from app.excel_io import REVIEW_NOTE_COL, with_run_info, detect_status_columns, create_formatted_excel_bytes, answer_statuses, build_answer_sheets, read_sheets, parse_question_id, find_id_column, find_question_column
-from app.config import COST_DECIMALS, EXCEL_EXTENSIONS
+from app.config import COST_DECIMALS, DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS
 from app.store import get_vectorstore
 from app.ingestion import ingest, IngestWriteError
 
@@ -106,7 +106,7 @@ def delete_document(filename: str):
     return {"message": "Not found"}
 
 @router.post("/api/rfp/analyze")
-async def analyze_rfp(file: UploadFile = File(...), model: str = Form("gpt-4o-mini")):
+async def analyze_rfp(file: UploadFile = File(...), model: str = Form(DEFAULT_AGENT_MODEL)):
     _reject_xls(file.filename)
     if not os.environ.get("OPENAI_API_KEY"): raise HTTPException(status_code=400, detail="Missing API Key")
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -194,7 +194,7 @@ def export_edited_excel(req: ExportRequest):
 # 7. ACCURACY EVALUATION ENDPOINT
 # ==========================================
 @router.post("/api/rfp/evaluate")
-async def evaluate_rfp_accuracy(file: UploadFile = File(...), model: str = Form("gpt-4o-mini")):
+async def evaluate_rfp_accuracy(file: UploadFile = File(...), model: str = Form(DEFAULT_AGENT_MODEL)):
     _reject_xls(file.filename)
     if not os.environ.get("OPENAI_API_KEY"): 
         raise HTTPException(status_code=400, detail="Missing API Key")

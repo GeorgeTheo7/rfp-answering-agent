@@ -78,3 +78,11 @@ Judge selection:
 - MMR λ=0.7 dropped the fact chunks of EV-08, EV-11, EV-32, EV-45 (EV-11, EV-32, EV-45 at similarity ranks 4–5).
 - Missed by all: EV-13 (hosting sentence at similarity rank 41: intro-heavy chunk, split mid-sentence).
 - Recall is necessary, not sufficient: answer scores with similarity k=5 not yet measured.
+
+## 2026-11-08 answer_found (agent gpt-6-luna)
+Change: `AnalystDraft.answer_found`; false -> code writes FAIL_MSG (not_found), model text kept in the review note. Runs: `Evaluated_v2_afound_luna_r1/r2` (agent + judge gpt-6-luna, similarity k=5, commit 783e25f).
+
+- Overall 81.3 / 80.0 (before, `Evaluated_v2_sim_luna_r1/r2`: 82.0 (79.9–84.2)).
+- Refusals 2/6 and 1/6 (before: 3/6). Override fired once (r1, EV-50, correct); 0 destructive overrides (no answerable question overridden). EV-13 refused in all Luna runs before and after (retrieval miss, not the override).
+- Cause: on unanswerable questions Luna adds a related fact ("ISO 27001", "records kept 3 years") and then sets answer_found=true, so the override cannot fire.
+- Decision: keep answer_found (harmless, the override is safe); not re-run with gpt-4o-mini. Next: absence statements -> needs_review in code (README Roadmap).

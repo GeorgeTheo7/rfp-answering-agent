@@ -66,7 +66,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
   const [isDownloading, setIsDownloading] = useState(false);
 
   const [selectedModel, setSelectedModel] = useState(() => {
-    return sessionStorage.getItem("rfp_model") || "gpt-4o-mini";
+    return sessionStorage.getItem("rfp_model") || "gpt-6-luna";
   });
 
   const [isOpenAiAvailable, setIsOpenAiAvailable] = useState(true);

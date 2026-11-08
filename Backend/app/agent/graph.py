@@ -1,6 +1,7 @@
 from langgraph.graph import StateGraph, START, END
 from langchain_community.callbacks.manager import get_openai_callback
 
+from app.config import DEFAULT_AGENT_MODEL
 from app.agent.schemas import Answer, QuestionAnsweringState, QuestionState, RFPGraphState, Status, company_analysts
 from app.agent.nodes import (
     extract_questions_node, route_questions, generate_final_report_node, calculate_cost,
@@ -36,7 +37,7 @@ def answer_question_node(state: QuestionAnsweringState):
     error (rate limit, timeout, schema validation, etc.) does NOT bring down the whole
     batch. On success, the behaviour is identical to before."""
     question = state["question"]
-    chosen_model = state.get("selected_model", "gpt-4o-mini")
+    chosen_model = state.get("selected_model", DEFAULT_AGENT_MODEL)
     analyst = company_analysts.get(question.category, company_analysts["Product"])
 
     try:
