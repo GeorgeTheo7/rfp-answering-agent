@@ -1,0 +1,240 @@
+{
+ "_about": "Retrieval ground truth for eval_set_v2. A question's fact counts as retrieved if every phrase in 'all' (or at least one in 'any') appears, case-insensitive, after removing '**' and collapsing whitespace, in the text of the retrieved chunks. Unanswerable rows (EV-09, 10, 22, 38, 44, 50) are excluded.",
+ "facts": {
+  "EV-01": {
+   "all": [
+    "27001:2022"
+   ]
+  },
+  "EV-02": {
+   "all": [
+    "observation period"
+   ]
+  },
+  "EV-03": {
+   "all": [
+    "12 characters"
+   ]
+  },
+  "EV-04": {
+   "all": [
+    "number matching"
+   ]
+  },
+  "EV-05": {
+   "all": [
+    "Remediation time limit"
+   ]
+  },
+  "EV-06": {
+   "all": [
+    "CREST"
+   ]
+  },
+  "EV-07": {
+   "all": [
+    "at least 12 months",
+    "Security event logs (SIEM)"
+   ]
+  },
+  "EV-08": {
+   "all": [
+    "90 days after the end",
+    "Retention of backups"
+   ]
+  },
+  "EV-11": {
+   "all": [
+    "72 hours",
+    "LogistiComp as processor"
+   ]
+  },
+  "EV-12": {
+   "all": [
+    "No exceptions are granted"
+   ]
+  },
+  "EV-13": {
+   "any": [
+    "primary region is West Europe",
+    "West Europe and North Europe regions"
+   ]
+  },
+  "EV-14": {
+   "all": [
+    "Priority 1"
+   ]
+  },
+  "EV-15": {
+   "all": [
+    "Zebra"
+   ]
+  },
+  "EV-16": {
+   "all": [
+    "train artificial intelligence"
+   ]
+  },
+  "EV-17": {
+   "all": [
+    "LogistiComp WMS production service (application"
+   ]
+  },
+  "EV-18": {
+   "all": [
+    "active-passive"
+   ]
+  },
+  "EV-19": {
+   "all": [
+    "99.9%"
+   ]
+  },
+  "EV-20": {
+   "any": [
+    "on-premises",
+    "single-tenant"
+   ]
+  },
+  "EV-21": {
+   "all": [
+    "previous API version remains available"
+   ]
+  },
+  "EV-23": {
+   "all": [
+    "designated security contact"
+   ]
+  },
+  "EV-24": {
+   "all": [
+    "12 characters"
+   ]
+  },
+  "EV-25": {
+   "all": [
+    "consecutive failed login attempts"
+   ]
+  },
+  "EV-26": {
+   "all": [
+    "SAML 2.0"
+   ]
+  },
+  "EV-27": {
+   "all": [
+    "time-based one-time passwords"
+   ]
+  },
+  "EV-28": {
+   "all": [
+    "digital forensics firm"
+   ]
+  },
+  "EV-29": {
+   "all": [
+    "2 hours and 40 minutes"
+   ]
+  },
+  "EV-30": {
+   "all": [
+    "LogistiComp WMS production service (application"
+   ]
+  },
+  "EV-31": {
+   "all": [
+    "Retention of backups"
+   ]
+  },
+  "EV-32": {
+   "all": [
+    "immutable (write-once) storage"
+   ]
+  },
+  "EV-33": {
+   "all": [
+    "dpo@logisticomp.example"
+   ]
+  },
+  "EV-34": {
+   "all": [
+    "does not transfer customer personal data outside"
+   ]
+  },
+  "EV-35": {
+   "all": [
+    "the customer is the controller"
+   ]
+  },
+  "EV-36": {
+   "all": [
+    "before LogistiComp adds or replaces a sub-processor"
+   ]
+  },
+  "EV-37": {
+   "all": [
+    "Article 28 of the GDPR"
+   ]
+  },
+  "EV-39": {
+   "all": [
+    "highest volumes in the weeks before the end of the year"
+   ]
+  },
+  "EV-40": {
+   "all": [
+    "No one can both develop a change and approve its deployment"
+   ]
+  },
+  "EV-41": {
+   "all": [
+    "Release notes describing new features"
+   ]
+  },
+  "EV-42": {
+   "all": [
+    "SSL, TLS 1.0 and TLS 1.1 are disabled"
+   ]
+  },
+  "EV-43": {
+   "all": [
+    "immediately if a key is suspected to be compromised"
+   ]
+  },
+  "EV-45": {
+   "all": [
+    "of the supplier becoming aware of it"
+   ]
+  },
+  "EV-46": {
+   "all": [
+    "Basic checks when the supplier is onboarded only"
+   ]
+  },
+  "EV-47": {
+   "all": [
+    "separate database schema"
+   ]
+  },
+  "EV-48": {
+   "all": [
+    "paid bug bounty"
+   ]
+  },
+  "EV-49": {
+   "all": [
+    "1,000 requests per minute"
+   ]
+  },
+  "EV-51": {
+   "all": [
+    "EDIFACT"
+   ]
+  },
+  "EV-52": {
+   "all": [
+    "Tenant audit logs (visible to customer administrators)"
+   ]
+  }
+ }
+}
