@@ -7,6 +7,7 @@
 - I'm learning: if I say "explain", explain properly.
 - One small change per conversation and per commit. Suggest an imperative commit message.
 - Never read or modify `.env`.
+- Solo repo: commit directly on main; don't create branches unless I ask.
 
 ## Project
 Answers RFP/security questionnaires (Excel/PDF) with RAG over company policy PDFs.
