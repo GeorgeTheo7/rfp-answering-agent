@@ -49,6 +49,7 @@ def load_run(path) -> list[dict]:
             "id": _text(r["ID"]).strip(), "type": _text(r["Type"]).strip(), "split": _text(r["Split"]).strip(),
             "not_found": not_found, "score": score,
             # Text leak = names the agent wrote itself; cited files are counted by the Sources check.
+            "refused": is_fail_text(answer),
             "leak_answer": bool(LEAK.search(_CITATION_GROUP.sub("", answer))),
             "leak_sources": bool(LEAK.search(sources)),
         })
@@ -65,6 +66,8 @@ def run_metrics(rows: list[dict]) -> dict:
         "overall": _avg(rows),
         "refusals": sum(r["score"] == 100 for r in nf),
         "wrong": [r["id"] for r in nf if r["score"] != 100],
+        # Answerable questions answered with the fail text.
+        "wrongful": [r["id"] for r in rows if not r["not_found"] and r["refused"]],
         "leak_answer": [r["id"] for r in rows if r["leak_answer"]],
         "leak_sources": [r["id"] for r in rows if r["leak_sources"]],
         "scores": {r["id"]: r["score"] for r in rows},
@@ -133,8 +136,11 @@ def report(paths) -> str:
     wrong = col("wrong")
     out += ["## Not found",
             f"- Correct refusals: {fmt(col('refusals'), 0)}/{nf_total}",
-            f"- Wrong answers (answered an unanswerable question): {fmt([len(w) for w in wrong], 0)}: {fmt_ids(wrong, order)}",
-            ""]
+            f"- Wrong answers (answered an unanswerable question): {fmt([len(w) for w in wrong], 0)}: {fmt_ids(wrong, order)}"]
+    wrongful = col("wrongful")
+    by_split = ", ".join(f"{s} {fmt([sum(info[i]['split'] == s for i in w) for w in wrongful], 0)}" for s in SPLITS)
+    out += [(f"- Wrongful refusals (answerable question answered with the fail text): "
+             f"{fmt([len(w) for w in wrongful], 0)} ({by_split}): {fmt_ids(wrongful, order)}"), ""]
 
     out += ["## Leaks", "| Where | Rows | IDs |", "|---|---|---|"]
     for key, label in (("leak_answer", "Answer"), ("leak_sources", "Sources")):

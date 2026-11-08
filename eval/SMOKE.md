@@ -39,7 +39,7 @@ Intended colour changes since the baseline are listed cell by cell in `FILL_CHAN
 | General ID in preview | `Q-3` (row index across all sheets) | `[General] Q1` (sheet-local) | same |
 | Export edits sheets | all rows in one `RFP Responses` sheet (preview IDs have no `[sheet]` prefix) | original sheets kept | same |
 | Yellow rows | none | none | only for `needs_review` |
-| Review note | – | – | non-empty exactly on `needs_review` rows (printed below the table) |
+| Review note | – | – | non-empty exactly on `needs_review` rows; a `not_found` row may carry only the "Model text before not-found override" note (printed below the table) |
 | No schema leak | no answer contains `sources_used`, `answer_text`, `reasoning`, `{'`, `':` | same | same |
 
 ## Baseline values (2026-11-08, demo KB, gpt-4o-mini, one run; LLM output varies)

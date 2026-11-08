@@ -3,10 +3,16 @@
     "answer_text": {
       "title": "Answer Text",
       "type": "string"
+    },
+    "answer_found": {
+      "description": "false ONLY if the CONTEXT contains nothing that answers any part of the QUESTION; the answer is then replaced by the standard not-found message. true for full and partial answers. Saying that something is not mentioned does not count as answering.",
+      "title": "Answer Found",
+      "type": "boolean"
     }
   },
   "required": [
-    "answer_text"
+    "answer_text",
+    "answer_found"
   ],
   "title": "AnalystDraft",
   "type": "object"

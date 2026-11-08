@@ -41,6 +41,10 @@ class Question(BaseModel):
 # A comment, not a docstring: docstrings are sent to the LLM as the schema description.
 class AnalystDraft(BaseModel):
     answer_text: str
+    answer_found: bool = Field(description=(
+        "false ONLY if the CONTEXT contains nothing that answers any part of the QUESTION; the answer is then "
+        "replaced by the standard not-found message. true for full and partial answers. Saying that something "
+        "is not mentioned does not count as answering."))
 
 class Answer(BaseModel):
     question_id: str

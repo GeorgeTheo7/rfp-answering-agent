@@ -145,8 +145,12 @@ if step < 6:
     checks.append(("No yellow rows", not other_fills))
 else:
     checks.append(("Yellow only for needs_review", all(row.get("status") == "needs_review" for row in other_fills)))
-    checks.append(("Review note iff needs_review",
-                   all(bool(row.get("review_note")) == (row.get("status") == "needs_review") for row in rows)))
+    # A not_found row may carry only the answer_found override note (the model's own wording).
+    checks.append(("Review note iff needs_review (or override note on not_found)",
+                   all(bool(row.get("review_note")) == (row.get("status") == "needs_review")
+                       or (row.get("status") == "not_found"
+                           and row.get("review_note", "").startswith("Model text before not-found override: "))
+                       for row in rows)))
 
 _print(f"\n=== CHECKS (step {step}) ===")
 for name, ok in checks:

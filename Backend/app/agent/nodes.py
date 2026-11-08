@@ -188,6 +188,8 @@ def retrieve_node(state: QuestionState):
 
     return {"context_text": "\n\n".join(context_parts), "allowed_sources": allowed_sources, "attempt": 0, "feedback": ""}
 
+OVERRIDE_NOTE_PREFIX = "Model text before not-found override: "
+
 def draft_node(state: QuestionState):
     question, analyst = state["question"], state["analyst"]
     context_text, feedback = state["context_text"], state["feedback"]
@@ -196,14 +198,24 @@ def draft_node(state: QuestionState):
     final_prompt = analyst_draft_prompt(persona, question.text, context_text, feedback, previous_answer)
 
     result = _llm(state).with_structured_output(AnalystDraft).invoke(final_prompt)
+    answer_text, review_note = result.answer_text, ""
+    if not result.answer_found:
+        # The model says nothing in the context answers the question: FAIL_MSG -> route_after_draft and
+        # finalize_node treat it as not_found. Its own wording is kept in the review note (unless it already
+        # was just the not-found message).
+        if not (is_fail_text(answer_text) and not is_partial_fail_text(answer_text)):
+            review_note = f"{OVERRIDE_NOTE_PREFIX}{answer_text}"
+            print(f"   [!] Attempt {state['attempt'] + 1}: answer_found=false -> FAIL_MSG. {review_note}")
+        answer_text = FAIL_MSG
     draft = Answer(
         question_id=question.id,
         question_text=question.text,
         assigned_analyst=analyst.name,
-        answer_text=result.answer_text,
+        answer_text=answer_text,
         category=question.category,
         sheet=question.sheet,
         row_index=question.row_index,
+        review_note=review_note,
     )
     return {"draft": draft, "attempt": state["attempt"] + 1}
 

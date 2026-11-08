@@ -1,11 +1,11 @@
 from types import SimpleNamespace
 
-from app.agent import nodes
-from app.agent.nodes import _canonical_value
-from app.agent.schemas import AnalystDraft, HallucinationEvaluation, Question, company_analysts
 import pytest
 
-from app.config import MMR_LAMBDA, RETRIEVAL_FETCH_K, RETRIEVAL_K
+from app.agent import nodes
+from app.agent.nodes import _canonical_value
+from app.agent.schemas import AnalystDraft, HallucinationEvaluation, Question, Status, company_analysts
+from app.config import FAIL_MSG, FAIL_MSG_PREFIX, MMR_LAMBDA, RETRIEVAL_FETCH_K, RETRIEVAL_K
 
 ALLOWED = ["Yes", "No", "Partially Supported"]
 
@@ -60,15 +60,16 @@ def test_hallucination_judge_reasons_before_verdict():
     assert list(HallucinationEvaluation.model_fields)[0] == "reasoning"
 
 
-def test_analyst_draft_has_only_answer_text():
-    assert list(AnalystDraft.model_fields) == ["answer_text"]
+def test_analyst_draft_writes_answer_before_deciding_answer_found():
+    assert list(AnalystDraft.model_fields) == ["answer_text", "answer_found"]
+    assert AnalystDraft.model_fields["answer_found"].is_required()
 
 
 def test_draft_node_builds_answer_from_question(monkeypatch):
     class FakeLLM:
         def with_structured_output(self, schema):
             assert schema is AnalystDraft
-            return SimpleNamespace(invoke=lambda prompt: AnalystDraft(answer_text="a"))
+            return SimpleNamespace(invoke=lambda prompt: AnalystDraft(answer_text="a", answer_found=True))
     monkeypatch.setattr(nodes, "_llm", lambda state: FakeLLM())
     question = Question(id="[RFP] A1", text="q", category="Tech", sheet="RFP", row_index=4)
 
@@ -79,3 +80,38 @@ def test_draft_node_builds_answer_from_question(monkeypatch):
     assert (draft.question_id, draft.question_text, draft.assigned_analyst, draft.answer_text) ==         ("[RFP] A1", "q", company_analysts["Tech"].name, "a")
     assert (draft.category, draft.sheet, draft.row_index) == ("Tech", "RFP", 4)
     assert draft.sources_used == [] and result["attempt"] == 1
+
+
+def _draft_with(monkeypatch, text, found):
+    monkeypatch.setattr(nodes, "_llm", lambda state: SimpleNamespace(with_structured_output=lambda schema: SimpleNamespace(
+        invoke=lambda prompt: AnalystDraft(answer_text=text, answer_found=found))))
+    question = Question(id="[RFP] A1", text="Are you PCI DSS certified?", category="Security", sheet="RFP", row_index=0)
+    return nodes.draft_node({"question": question, "analyst": company_analysts["Security"],
+                             "context_text": "c", "feedback": "", "attempt": 0})["draft"]
+
+
+def test_answer_found_false_overrides_paraphrased_refusal_and_keeps_it_in_review_note(monkeypatch):
+    paraphrase = "PCI DSS is not mentioned in the available information. [**Source: a.pdf (Page 1)**]"
+    draft = _draft_with(monkeypatch, paraphrase, False)
+    assert draft.answer_text == FAIL_MSG
+    assert draft.review_note == f"Model text before not-found override: {paraphrase}"
+    assert nodes.route_after_draft({"draft": draft}) == "conflict_audit"
+    answer = nodes.finalize_node({"draft": draft, "conflicts": "", "status_map": {}, "allowed_sources": []})["answer"]
+    assert (answer.status, answer.sources_used) == (Status.not_found, [])
+    assert answer.review_note == draft.review_note
+
+
+def test_answer_found_false_with_plain_fail_message_adds_no_note(monkeypatch):
+    draft = _draft_with(monkeypatch, FAIL_MSG_PREFIX + ".", False)
+    assert (draft.answer_text, draft.review_note) == (FAIL_MSG, "")
+
+
+def test_answer_found_true_keeps_partial_answer(monkeypatch):
+    partial = "SSO via SAML 2.0 [**Source: a.pdf (Page 1)**]. SCIM is not mentioned."
+    draft = _draft_with(monkeypatch, partial, True)
+    assert (draft.answer_text, draft.review_note) == (partial, "")
+
+
+def test_exact_fail_message_with_answer_found_true_still_routes_as_not_found(monkeypatch):
+    draft = _draft_with(monkeypatch, FAIL_MSG, True)  # text check is the fallback
+    assert nodes.route_after_draft({"draft": draft}) == "conflict_audit"

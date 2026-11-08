@@ -45,6 +45,7 @@ def test_single_run_scores_not_found_leaks_and_low_rows(tmp_path):
     assert "| deduction | 0 | – | 1 | 40.0 |" in text
     assert "Correct refusals: 1/2" in text
     assert "Wrong answers (answered an unanswerable question): 1: EV-04" in text
+    assert "Wrongful refusals (answerable question answered with the fail text): 0 (dev 0, held_out 0): –" in text
     assert "| Answer | 1 | EV-02 |" in text and "| Sources | 2 | EV-02, EV-04 |" in text
     assert "| EV-02 | deduction | held_out | 40 |" in text and "| EV-04 | unanswerable | held_out | 0 |" in text
     assert "| EV-01 |" not in text
@@ -78,3 +79,10 @@ def test_report_prints_run_info_and_ignores_its_sheet(tmp_path):
     assert "- Evaluated_a.xlsx (Agent model: gpt-6-luna; Judge model: gpt-6-luna; Git commit: abc1234)" in text
     assert "- Evaluated_b.xlsx (no run info)" in text
     assert "| Overall | 5 | 60.0 (60.0–60.0) |" in text  # Run info rows not counted
+
+
+def test_wrongful_refusals_count_answerable_rows_with_fail_text_by_split(tmp_path):
+    rows = RUN1 + [("EV-06", "answered", "answerable", "held_out", FAIL_MSG, "", 0),
+                   ("EV-07", "partial", "partial", "dev", f"Partly. {FAIL_MSG}", "", 30)]
+    text = score_report.report([_workbook(tmp_path / "Evaluated_w.xlsx", rows)])
+    assert "Wrongful refusals (answerable question answered with the fail text): 2 (dev 1, held_out 1): EV-06, EV-07" in text

@@ -122,7 +122,7 @@ def _run_subgraph(monkeypatch, drafts, judge_rejects=False):
     def respond(schema):
         if schema is AnalystDraft:
             calls["draft"] += 1
-            return AnalystDraft(answer_text=next(draft_texts))
+            return AnalystDraft(answer_text=next(draft_texts), answer_found=True)
         if schema is HallucinationEvaluation:
             calls["judge"] += 1
             if judge_rejects:
