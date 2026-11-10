@@ -1,15 +1,25 @@
+# Access log with the raw X-Forwarded-For and the direct peer, to check client IP resolution on Azure.
+log_format realip '$remote_addr (peer $realip_remote_addr) - $remote_user [$time_local] "$request" '
+                  '$status $body_bytes_sent "$http_referer" "$http_user_agent" xff="$http_x_forwarded_for"';
+
 server {
+  access_log /var/log/nginx/access.log realip;
   listen 80;
   root /usr/share/nginx/html;
   index _shell.html;
   client_max_body_size 20m;
 
-  # Real client IP for the backend's demo rate limits: Azure Container Apps ingress appends the client IP as
-  # the rightmost X-Forwarded-For entry, so take that one (recursive off) and pass it on as X-Real-IP.
-  # The backend trusts X-Real-IP, so it must only be reachable through nginx (internal ingress).
-  set_real_ip_from 0.0.0.0/0;
+  # Real client IP for the backend's demo rate limits. nginx walks X-Forwarded-For from the right, skipping
+  # trusted proxy addresses (Azure Container Apps ingress hops are internal/private, e.g. 100.100.x.x), and uses
+  # the first untrusted (public) address. Entries a client could fake are left of its real IP and never reached.
+  # It is passed on as X-Real-IP; the backend trusts that header, so it must only be reachable through nginx.
+  set_real_ip_from 100.64.0.0/10;
+  set_real_ip_from 10.0.0.0/8;
+  set_real_ip_from 172.16.0.0/12;
+  set_real_ip_from 192.168.0.0/16;
+  set_real_ip_from 127.0.0.0/8;
   real_ip_header X-Forwarded-For;
-  real_ip_recursive off;
+  real_ip_recursive on;
 
   location /api/ {
     # BACKEND_URL must have no trailing slash: backend routes already start with /api and the path must be forwarded unchanged
