@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, errorMessage, useAppConfig } from "@/lib/api";
 import { motion } from "framer-motion";
 import { RefreshCw, Trash2, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -24,6 +24,7 @@ interface KnowledgeBaseProps {
 }
 
 export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
+  const { demo_mode: readOnly } = useAppConfig();
   const [files, setFiles] = useState<File[]>([]);
   const [docs, setDocs] = useState<KbDoc[]>([]);
 
@@ -81,8 +82,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
         setFiles([]);
         fetchDocuments();
       } else {
-        const errorData = await res.json().catch(() => null);
-        alert(errorData?.detail || "There was a problem uploading.");
+        alert(await errorMessage(res, "There was a problem uploading."));
       }
     } catch (error) {
       console.error(error);
@@ -108,6 +108,8 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
 
       if (res.ok) {
         fetchDocuments();
+      } else {
+        alert(await errorMessage(res, "Delete failed."));
       }
     } catch (error) {
       console.error(error);
@@ -126,7 +128,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
       if (res.ok) {
         fetchDocuments();
       } else {
-        alert("Failed to delete all documents.");
+        alert(await errorMessage(res, "Failed to delete all documents."));
       }
     } catch (error) {
       console.error(error);
@@ -176,25 +178,31 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
       <section className="space-y-4 lg:col-span-2">
         <div>
           <h2 className="text-base font-semibold tracking-tight text-foreground">
-            Upload new documents
+            {readOnly ? "Knowledge base" : "Upload new documents"}
           </h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Add internal company PDFs and previous RFP Excel files to power AI answers.
+            {readOnly
+              ? "Public demo: the knowledge base is read-only. Answers come from the fictional LogistiComp documents listed here."
+              : "Add internal company PDFs and previous RFP Excel files to power AI answers."}
           </p>
         </div>
 
-        {/* [UPDATED] DropZone also accepts .xlsx, .xlsm */}
-        <DropZone
-          title="Drop internal documents here"
-          subtitle="PDF, .xlsx, .xlsm — policies, previous RFPs, datasheets"
-          accept=".pdf,.xlsx,.xlsm"
-          files={files}
-          onFilesChange={setFiles}
-        />
-        <Button onClick={handleSync} disabled={files.length === 0} className="w-full gap-2">
-          <RefreshCw className="h-4 w-4" />
-          Process & Sync to Vector DB
-        </Button>
+        {!readOnly && (
+          <>
+            {/* [UPDATED] DropZone also accepts .xlsx, .xlsm */}
+            <DropZone
+              title="Drop internal documents here"
+              subtitle="PDF, .xlsx, .xlsm — policies, previous RFPs, datasheets"
+              accept=".pdf,.xlsx,.xlsm"
+              files={files}
+              onFilesChange={setFiles}
+            />
+            <Button onClick={handleSync} disabled={files.length === 0} className="w-full gap-2">
+              <RefreshCw className="h-4 w-4" />
+              Process & Sync to Vector DB
+            </Button>
+          </>
+        )}
       </section>
 
       <section className="space-y-4 lg:col-span-3">
@@ -209,7 +217,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
           </div>
 
           <div className="flex items-center gap-3">
-            {docs.length > 0 && (
+            {!readOnly && docs.length > 0 && (
               <Button
                 variant="destructive"
                 size="sm"
@@ -229,7 +237,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
               <TableRow className="bg-muted/60 hover:bg-muted/60">
                 <TableHead>Document Name</TableHead>
                 <TableHead className="w-28">Status</TableHead>
-                <TableHead className="w-16 text-right">Action</TableHead>
+                {!readOnly && <TableHead className="w-16 text-right">Action</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -251,23 +259,25 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
                       {doc.status}
                     </span>
                   </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDelete(doc.id)}
-                      className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      aria-label="Delete document"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </TableCell>
+                  {!readOnly && (
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDelete(doc.id)}
+                        className="h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Delete document"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  )}
                 </TableRow>
               ))}
               {docs.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={3}
+                    colSpan={readOnly ? 2 : 3}
                     className="py-10 text-center text-sm text-muted-foreground"
                   >
                     No documents indexed yet. Upload files to start.

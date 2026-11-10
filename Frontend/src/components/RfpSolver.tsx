@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, errorMessage } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Loader2, Download, CheckCircle2, RotateCcw, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -109,8 +109,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "The API returned an error!");
+        throw new Error(await errorMessage(response, "The API returned an error!"));
       }
 
       const data = await response.json();
@@ -134,7 +133,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows: tableData, filename: downloadFilename }),
       });
-      if (!response.ok) throw new Error("Export failed.");
+      if (!response.ok) throw new Error(await errorMessage(response, "Export failed."));
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -145,7 +144,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } catch (error) {
-      alert("Failed to download the updated file.");
+      alert(error instanceof Error ? error.message : "Failed to download the updated file.");
     } finally {
       setIsDownloading(false);
     }

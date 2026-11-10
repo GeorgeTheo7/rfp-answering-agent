@@ -15,6 +15,7 @@ from app.agent.nodes import is_fail_text
 from app.agent.schemas import Answer, Status
 from app.evaluation import run_info, run_llm_judge, categorical_eval
 from app.excel_io import REVIEW_NOTE_COL, add_answer_status_column, with_run_info, detect_status_columns, create_formatted_excel_bytes, answer_statuses, build_answer_sheets, read_sheets, parse_question_id, find_id_column, find_question_column
+from app import config
 from app.config import COST_DECIMALS, DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS
 from app.store import get_vectorstore
 from app.ingestion import ingest, IngestWriteError
@@ -55,9 +56,20 @@ def _preview_row(ans: Answer) -> dict:
         "status": ans.status.value,
     }
 
+DEMO_READ_ONLY_MSG = "This is a public demo: the knowledge base is read-only."
+
+def _require_writable():
+    # Plain call at the top of each KB write endpoint (not Depends): rejects before anything is written.
+    if config.DEMO_MODE:  # module attribute, so tests can monkeypatch it
+        raise HTTPException(status_code=403, detail=DEMO_READ_ONLY_MSG)
+
 @router.get("/api/health")
 def health():
     return {"status": "ok"}
+
+@router.get("/api/config")
+def get_config():
+    return {"demo_mode": config.DEMO_MODE}
 
 @router.get("/api/providers/status")
 def get_providers_status():
@@ -75,6 +87,7 @@ def get_documents():
 
 @router.post("/api/documents/upload")
 async def upload_knowledge_documents(files: List[UploadFile] = File(...)):
+    _require_writable()
     for file in files:
         _reject_xls(file.filename)  # before any write: no half-ingested batch
     with tempfile.TemporaryDirectory() as temp_dir:
@@ -94,6 +107,7 @@ async def upload_knowledge_documents(files: List[UploadFile] = File(...)):
 
 @router.delete("/api/documents/all")
 def delete_all_documents():
+    _require_writable()
     results = get_vectorstore().get()
     ids_to_delete = results.get("ids", [])
     if ids_to_delete:
@@ -103,6 +117,7 @@ def delete_all_documents():
 
 @router.delete("/api/documents/{filename}")
 def delete_document(filename: str):
+    _require_writable()
     results = get_vectorstore().get(where={"source": filename})
     ids_to_delete = results.get("ids", [])
     if ids_to_delete:

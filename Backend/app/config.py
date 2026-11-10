@@ -54,3 +54,9 @@ MODEL_PRICING = {
 
 # Cost is rounded at output only (Excel + API response); full precision internally.
 COST_DECIMALS = 4
+
+# Demo limits (public deployment). All off unless DEMO_MODE is set; read from the environment at import.
+def _env_bool(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
+
+DEMO_MODE = _env_bool("DEMO_MODE")  # knowledge base read-only (upload/delete -> 403)

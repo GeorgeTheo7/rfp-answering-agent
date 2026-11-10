@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API_BASE } from "@/lib/api";
+import { API_BASE, errorMessage } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Loader2, Bot, AlertCircle, Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -114,8 +114,7 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || "Error evaluating accuracy.");
+        throw new Error(await errorMessage(response, "Error evaluating accuracy."));
       }
 
       const data = await response.json();

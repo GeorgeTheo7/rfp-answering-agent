@@ -49,3 +49,54 @@ def test_health_responds_while_a_run_is_in_progress(monkeypatch):
     assert health_response.json() == {"status": "ok"}
     # Measured from the start: if the run blocked the loop, health would finish only after ~1 s.
     assert health_done < 0.6
+
+
+# --- Demo mode: read-only knowledge base ---
+
+class _FakeStore:
+    def __init__(self):
+        self.deleted = []
+
+    def get(self, **kwargs):
+        return {"ids": ["doc.pdf:h:0"]}
+
+    def delete(self, ids):
+        self.deleted.extend(ids)
+
+
+def _fail_store():
+    raise AssertionError("the store must not be touched in demo mode")
+
+
+def test_config_reports_demo_mode(monkeypatch):
+    for flag in (True, False):
+        monkeypatch.setattr(api.config, "DEMO_MODE", flag)
+        assert TestClient(app).get("/api/config").json() == {"demo_mode": flag}
+
+
+def test_demo_mode_rejects_kb_writes_without_touching_the_store(monkeypatch):
+    monkeypatch.setattr(api.config, "DEMO_MODE", True)
+    monkeypatch.setattr(api, "get_vectorstore", _fail_store)
+    monkeypatch.setattr(api, "ingest", lambda *a, **k: _fail_store())
+    client = TestClient(app)
+
+    responses = [
+        client.post("/api/documents/upload", files={"files": ("doc.pdf", b"unused")}),
+        client.delete("/api/documents/doc.pdf"),
+        client.delete("/api/documents/all"),
+    ]
+
+    for response in responses:
+        assert response.status_code == 403
+        assert response.json() == {"detail": api.DEMO_READ_ONLY_MSG}
+
+
+def test_deletes_work_when_demo_mode_is_off(monkeypatch):
+    store = _FakeStore()
+    monkeypatch.setattr(api.config, "DEMO_MODE", False)
+    monkeypatch.setattr(api, "get_vectorstore", lambda: store)
+    client = TestClient(app)
+
+    assert client.delete("/api/documents/doc.pdf").json() == {"message": "Deleted"}
+    assert client.delete("/api/documents/all").json() == {"message": "Deleted"}
+    assert store.deleted == ["doc.pdf:h:0", "doc.pdf:h:0"]
