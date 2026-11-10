@@ -54,6 +54,10 @@ def _preview_row(ans: Answer) -> dict:
         "status": ans.status.value,
     }
 
+@router.get("/api/health")
+def health():
+    return {"status": "ok"}
+
 @router.get("/api/providers/status")
 def get_providers_status():
     return {"openai": bool(os.environ.get("OPENAI_API_KEY"))}
