@@ -71,6 +71,9 @@ DEMO_MODE = _env_bool("DEMO_MODE")  # knowledge base read-only (upload/delete ->
 MAX_UPLOAD_MB = _env_int("MAX_UPLOAD_MB", 5)
 MAX_PDF_PAGES = _env_int("MAX_PDF_PAGES", 20)  # PyMuPDF page count, before any LLM call
 MAX_QUESTIONS = _env_int("MAX_QUESTIONS", 55)  # checked after extraction, before answering (eval set: 52)
+# Run limits for analyze + evaluate, demo mode only (in memory, per process: run one replica; HTTP 429).
+RATE_LIMIT_PER_HOUR = _env_int("RATE_LIMIT_PER_HOUR", 5)  # per client IP, sliding hour
+DAILY_RUN_CAP = _env_int("DAILY_RUN_CAP", 100)  # all clients, per UTC day
 # Models a client may pick in demo mode (comma-separated MODEL_SETTINGS keys); all of MODEL_SETTINGS otherwise.
 DEMO_MODELS = tuple(m.strip() for m in ((os.environ.get("DEMO_MODELS") or "").strip() or DEFAULT_AGENT_MODEL).split(",")
                     if m.strip())

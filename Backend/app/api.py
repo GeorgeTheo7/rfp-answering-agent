@@ -7,7 +7,7 @@ import pandas as pd
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict
 
-from fastapi import APIRouter, UploadFile, File, HTTPException, Form
+from fastapi import APIRouter, UploadFile, File, HTTPException, Form, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
@@ -20,7 +20,7 @@ from app import config
 from app.config import COST_DECIMALS, DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS, MAX_CONCURRENCY
 from app.store import get_vectorstore
 from app.ingestion import ingest, IngestWriteError
-from app.limits import LimitError, allowed_models, check_model, check_upload
+from app.limits import LimitError, RateLimitError, acquire_run, allowed_models, check_model, check_upload
 
 router = APIRouter()
 
@@ -77,6 +77,8 @@ def get_config():
         "max_pdf_pages": config.MAX_PDF_PAGES,
         "max_questions": config.MAX_QUESTIONS,
         "allowed_models": allowed_models(),
+        "rate_limit_per_hour": config.RATE_LIMIT_PER_HOUR,
+        "daily_run_cap": config.DAILY_RUN_CAP,
     }
 
 @router.get("/api/providers/status")
@@ -147,7 +149,7 @@ def _analyze_file(temp_input_path: str, model: str, filename: str) -> dict:
 
 
 @router.post("/api/rfp/analyze")
-async def analyze_rfp(file: UploadFile = File(...), model: str = Form(DEFAULT_AGENT_MODEL)):
+async def analyze_rfp(request: Request, file: UploadFile = File(...), model: str = Form(DEFAULT_AGENT_MODEL)):
     _reject_xls(file.filename)
     if not os.environ.get("OPENAI_API_KEY"): raise HTTPException(status_code=400, detail="Missing API Key")
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -160,10 +162,13 @@ async def analyze_rfp(file: UploadFile = File(...), model: str = Form(DEFAULT_AG
     try:
         check_model(model)
         check_upload(temp_input_path, file_ext)
+        acquire_run(request)  # demo run limits: counted only once the input checks pass
         # Worker thread: the graph and Excel work are sync and would block every other request.
         return await asyncio.to_thread(_analyze_file, temp_input_path, model, file.filename)
     except LimitError as e:  # also raised inside the graph (question count)
         raise HTTPException(status_code=400, detail=str(e))
+    except RateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e), headers={"Retry-After": str(e.retry_after)})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -380,7 +385,7 @@ def _evaluate_file(temp_input_path: str, model: str, filename: str) -> dict:
 
 
 @router.post("/api/rfp/evaluate")
-async def evaluate_rfp_accuracy(file: UploadFile = File(...), model: str = Form(DEFAULT_AGENT_MODEL)):
+async def evaluate_rfp_accuracy(request: Request, file: UploadFile = File(...), model: str = Form(DEFAULT_AGENT_MODEL)):
     _reject_xls(file.filename)
     if not os.environ.get("OPENAI_API_KEY"): 
         raise HTTPException(status_code=400, detail="Missing API Key")
@@ -396,9 +401,12 @@ async def evaluate_rfp_accuracy(file: UploadFile = File(...), model: str = Form(
     try:
         check_model(model)
         check_upload(temp_input_path, file_ext)
+        acquire_run(request)  # demo run limits: counted only once the input checks pass
         return await asyncio.to_thread(_evaluate_file, temp_input_path, model, file.filename)
     except LimitError as e:  # also raised inside the graph (question count)
         raise HTTPException(status_code=400, detail=str(e))
+    except RateLimitError as e:
+        raise HTTPException(status_code=429, detail=str(e), headers={"Retry-After": str(e.retry_after)})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

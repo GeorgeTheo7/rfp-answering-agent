@@ -8,6 +8,8 @@ export interface AppConfig {
   max_pdf_pages: number;
   max_questions: number;
   allowed_models: string[] | null; // null until loaded: show every model
+  rate_limit_per_hour: number;
+  daily_run_cap: number;
 }
 
 const DEFAULT_CONFIG: AppConfig = {
@@ -16,6 +18,8 @@ const DEFAULT_CONFIG: AppConfig = {
   max_pdf_pages: 0,
   max_questions: 0,
   allowed_models: null,
+  rate_limit_per_hour: 0,
+  daily_run_cap: 0,
 };
 
 // Server settings for the UI (demo mode, limits, allowed models). Defaults until loaded or if the call
@@ -61,6 +65,7 @@ export function useValidModel(
 export function demoLimitsHint(config: AppConfig, withPdf = true): string {
   const parts = [`up to ${config.max_questions} questions`, `${config.max_upload_mb} MB`];
   if (withPdf) parts.push(`${config.max_pdf_pages} PDF pages`);
+  parts.push(`${config.rate_limit_per_hour} runs per hour`);
   return `Public demo: ${parts.join(", ")}`;
 }
 

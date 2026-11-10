@@ -4,6 +4,13 @@ server {
   index _shell.html;
   client_max_body_size 20m;
 
+  # Real client IP for the backend's demo rate limits: Azure Container Apps ingress appends the client IP as
+  # the rightmost X-Forwarded-For entry, so take that one (recursive off) and pass it on as X-Real-IP.
+  # The backend trusts X-Real-IP, so it must only be reachable through nginx (internal ingress).
+  set_real_ip_from 0.0.0.0/0;
+  real_ip_header X-Forwarded-For;
+  real_ip_recursive off;
+
   location /api/ {
     # BACKEND_URL must have no trailing slash: backend routes already start with /api and the path must be forwarded unchanged
     proxy_pass ${BACKEND_URL};
@@ -11,6 +18,7 @@ server {
     proxy_ssl_server_name on;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Real-IP $remote_addr;
     proxy_request_buffering off;
     proxy_connect_timeout 10s;
     proxy_send_timeout 600s;

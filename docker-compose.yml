@@ -11,6 +11,8 @@ services:
       MAX_PDF_PAGES: ${MAX_PDF_PAGES:-}
       MAX_QUESTIONS: ${MAX_QUESTIONS:-}
       DEMO_MODELS: ${DEMO_MODELS:-}
+      RATE_LIMIT_PER_HOUR: ${RATE_LIMIT_PER_HOUR:-}
+      DAILY_RUN_CAP: ${DAILY_RUN_CAP:-}
     volumes:
       - ./Backend/data:/app/data:ro
       - ./Backend/chroma_db:/app/chroma_db
