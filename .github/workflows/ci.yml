@@ -3,9 +3,14 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
+
+env:
+  REGISTRY: ghcr.io/georgetheo7   # GHCR image names must be lowercase
+  RESOURCE_GROUP: rg-rfp-agent
 
 jobs:
   checks:
@@ -22,8 +27,128 @@ jobs:
       - run: pytest Backend
 
   docker:
+    needs: checks   # images are only pushed after the tests pass
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # push to GHCR (only used on main)
+    env:
+      # Push only from main (push or manual run); PRs and other branches build only.
+      PUSH: ${{ github.ref == 'refs/heads/main' && github.event_name != 'pull_request' }}
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v7
-      - run: docker build -t rfp-backend Backend
-      - run: docker build -t rfp-frontend Frontend
+      - id: tag
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+      - uses: docker/setup-buildx-action@v4   # needed for the gha cache
+      - if: env.PUSH == 'true'
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v7
+        with:
+          context: Backend
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ env.REGISTRY }}/rfp-backend:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=backend
+          cache-to: type=gha,mode=max,scope=backend
+      - uses: docker/build-push-action@v7
+        with:
+          context: Frontend
+          push: ${{ env.PUSH == 'true' }}
+          tags: ${{ env.REGISTRY }}/rfp-frontend:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=frontend
+          cache-to: type=gha,mode=max,scope=frontend
+
+  deploy:
+    needs: [checks, docker]
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # OIDC token for azure/login
+      contents: read
+    concurrency:
+      group: deploy-azure
+      cancel-in-progress: false
+    env:
+      TAG: ${{ needs.docker.outputs.tag }}
+    steps:
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Ensure containerapp CLI extension
+        run: az extension add --name containerapp --upgrade --yes
+
+      - name: Deploy backend
+        run: |
+          state=$(az containerapp update -n ca-rfp-backend -g "$RESOURCE_GROUP" \
+                  --image "$REGISTRY/rfp-backend:$TAG" --query properties.provisioningState -o tsv)
+          echo "ca-rfp-backend provisioningState: $state"
+          if [ "$state" != "Succeeded" ]; then
+            echo "::error::ca-rfp-backend update ended with provisioningState '$state'"
+            exit 1
+          fi
+
+      - name: Deploy frontend
+        run: |
+          state=$(az containerapp update -n ca-rfp-frontend -g "$RESOURCE_GROUP" \
+                  --image "$REGISTRY/rfp-frontend:$TAG" --query properties.provisioningState -o tsv)
+          echo "ca-rfp-frontend provisioningState: $state"
+          if [ "$state" != "Succeeded" ]; then
+            echo "::error::ca-rfp-frontend update ended with provisioningState '$state'"
+            exit 1
+          fi
+
+      - name: Wait for ready revisions
+        run: |
+          for app in ca-rfp-backend ca-rfp-frontend; do
+            # Up to ~3 minutes: the latest revision must become the latest ready one
+            for i in $(seq 1 18); do
+              info=$(az containerapp show -n "$app" -g "$RESOURCE_GROUP" -o json --query \
+                "{latest: properties.latestRevisionName, ready: properties.latestReadyRevisionName, image: properties.template.containers[0].image}")
+              latest=$(jq -r '.latest' <<< "$info")
+              ready=$(jq -r '.ready' <<< "$info")
+              image=$(jq -r '.image' <<< "$info")
+              echo "$app attempt $i: latest=$latest ready=$ready image=$image"
+              [ "$latest" = "$ready" ] && break
+              if [ "$i" = "18" ]; then
+                echo "::error::$app: revision $latest did not become ready (latest ready: $ready)"
+                exit 1
+              fi
+              sleep 10
+            done
+            if [[ "$image" != *":$TAG" ]]; then
+              echo "::error::$app runs image $image, expected tag :$TAG"
+              exit 1
+            fi
+            echo "$app: revision $latest ready with image $image"
+          done
+
+      - name: Smoke test
+        run: |
+          fqdn=$(az containerapp show -n ca-rfp-frontend -g "$RESOURCE_GROUP" \
+                 --query properties.configuration.ingress.fqdn -o tsv)
+          echo "Frontend: https://$fqdn"
+          # Cold start: retry for up to ~2 minutes
+          for i in $(seq 1 24); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "https://$fqdn/api/health" || true)
+            echo "health attempt $i: $code"
+            [ "$code" = "200" ] && break
+            if [ "$i" = "24" ]; then
+              echo "::error::/api/health did not return 200"
+              exit 1
+            fi
+            sleep 5
+          done
+          curl -fsS --max-time 10 "https://$fqdn/api/config" | tee config.json
+          echo
+          if ! jq -e '.demo_mode == true' config.json > /dev/null; then
+            echo "::error::demo_mode is not true on the deployed backend"
+            exit 1
+          fi
