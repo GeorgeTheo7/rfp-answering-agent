@@ -71,7 +71,7 @@ def _fail_store():
 def test_config_reports_demo_mode(monkeypatch):
     for flag in (True, False):
         monkeypatch.setattr(api.config, "DEMO_MODE", flag)
-        assert TestClient(app).get("/api/config").json() == {"demo_mode": flag}
+        assert TestClient(app).get("/api/config").json()["demo_mode"] is flag
 
 
 def test_demo_mode_rejects_kb_writes_without_touching_the_store(monkeypatch):

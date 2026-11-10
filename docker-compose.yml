@@ -6,6 +6,11 @@ services:
     env_file: .env
     environment:
       DEMO_MODE: ${DEMO_MODE:-false}
+      # Empty = default in Backend/app/config.py
+      MAX_UPLOAD_MB: ${MAX_UPLOAD_MB:-}
+      MAX_PDF_PAGES: ${MAX_PDF_PAGES:-}
+      MAX_QUESTIONS: ${MAX_QUESTIONS:-}
+      DEMO_MODELS: ${DEMO_MODELS:-}
     volumes:
       - ./Backend/data:/app/data:ro
       - ./Backend/chroma_db:/app/chroma_db

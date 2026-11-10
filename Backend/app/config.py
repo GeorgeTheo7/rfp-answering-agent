@@ -62,4 +62,15 @@ COST_DECIMALS = 4
 def _env_bool(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in ("1", "true", "yes")
 
-DEMO_MODE = _env_bool("DEMO_MODE")  # knowledge base read-only (upload/delete -> 403)
+def _env_int(name: str, default: int) -> int:
+    raw = (os.environ.get(name) or "").strip()  # unset or empty -> default
+    return int(raw) if raw else default
+
+DEMO_MODE = _env_bool("DEMO_MODE")  # knowledge base read-only (upload/delete -> 403) + the limits below
+# Input limits, demo mode only (app/limits.py; HTTP 400, never truncated).
+MAX_UPLOAD_MB = _env_int("MAX_UPLOAD_MB", 5)
+MAX_PDF_PAGES = _env_int("MAX_PDF_PAGES", 20)  # PyMuPDF page count, before any LLM call
+MAX_QUESTIONS = _env_int("MAX_QUESTIONS", 55)  # checked after extraction, before answering (eval set: 52)
+# Models a client may pick in demo mode (comma-separated MODEL_SETTINGS keys); all of MODEL_SETTINGS otherwise.
+DEMO_MODELS = tuple(m.strip() for m in ((os.environ.get("DEMO_MODELS") or "").strip() or DEFAULT_AGENT_MODEL).split(",")
+                    if m.strip())

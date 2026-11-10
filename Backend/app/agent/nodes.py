@@ -12,6 +12,7 @@ from app.config import (
     DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS, FAIL_MSG, FAIL_MSG_PREFIX, MAX_REVISIONS, MMR_LAMBDA, MODEL_PRICING, MODEL_SETTINGS, OLD_FAIL_MSG_PREFIX,
     RETRIEVAL_FETCH_K, RETRIEVAL_K, RETRIEVAL_SEARCH_TYPE,
 )
+from app.limits import check_question_count
 from app.store import get_vectorstore
 from app.excel_io import detect_status_columns, find_question_column, is_id_header, read_sheets, resolve_id_column
 from app.agent.prompts import (
@@ -150,6 +151,7 @@ def extract_questions_node(state: RFPGraphState):
         raise ValueError("Unsupported file type!")
         
     print(f"   ✓ Extracted {len(questions)} questions in total.")
+    check_question_count(len(questions))  # demo limit, before any question is answered
     return {"extracted_questions": questions}
 
 # ==========================================

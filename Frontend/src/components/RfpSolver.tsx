@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API_BASE, errorMessage } from "@/lib/api";
+import { API_BASE, demoLimitsHint, errorMessage, useAppConfig, useValidModel } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Loader2, Download, CheckCircle2, RotateCcw, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,8 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
   });
 
   const [isOpenAiAvailable, setIsOpenAiAvailable] = useState(true);
+  const appConfig = useAppConfig();
+  const models = useValidModel(appConfig, selectedModel, setSelectedModel);
 
   useEffect(() => {
     sessionStorage.setItem("rfp_step", step);
@@ -85,12 +87,6 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
       .then((data) => setIsOpenAiAvailable(data.openai))
       .catch(() => setIsOpenAiAvailable(false));
   }, []);
-
-  const AI_MODELS = [
-    { id: "gpt-4o-mini", name: "GPT-4o Mini", cost: "Low", speed: "Fast" },
-    { id: "gpt-5-mini", name: "GPT-5 Mini", cost: "Medium", speed: "Fast" },
-    { id: "gpt-6-luna", name: "GPT-6 Luna", cost: "Low", speed: "Medium" },
-  ];
 
   const handleAnalyze = async () => {
     if (files.length === 0) return;
@@ -182,6 +178,10 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
               </p>
             </div>
 
+            {appConfig.demo_mode && (
+              <p className="text-sm text-muted-foreground">{demoLimitsHint(appConfig)}</p>
+            )}
+
             <DropZone
               title="Drag and drop the client's RFP"
               subtitle="Supports .xlsx, .xlsm, .pdf — up to 50MB"
@@ -201,7 +201,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
                 disabled={!isOpenAiAvailable}
                 className={`w-full h-10 rounded-md border border-input px-3 py-2 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all shadow-sm cursor-pointer ${!isOpenAiAvailable ? "bg-muted text-muted-foreground italic cursor-not-allowed" : "bg-background text-foreground"}`}
               >
-                {AI_MODELS.map((m) => (
+                {models.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}{" "}
                     {isOpenAiAvailable

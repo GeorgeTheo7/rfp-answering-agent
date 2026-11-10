@@ -20,6 +20,7 @@ from app import config
 from app.config import COST_DECIMALS, DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS, MAX_CONCURRENCY
 from app.store import get_vectorstore
 from app.ingestion import ingest, IngestWriteError
+from app.limits import LimitError, allowed_models, check_model, check_upload
 
 router = APIRouter()
 
@@ -70,7 +71,13 @@ def health():
 
 @router.get("/api/config")
 def get_config():
-    return {"demo_mode": config.DEMO_MODE}
+    return {
+        "demo_mode": config.DEMO_MODE,
+        "max_upload_mb": config.MAX_UPLOAD_MB,
+        "max_pdf_pages": config.MAX_PDF_PAGES,
+        "max_questions": config.MAX_QUESTIONS,
+        "allowed_models": allowed_models(),
+    }
 
 @router.get("/api/providers/status")
 def get_providers_status():
@@ -151,8 +158,12 @@ async def analyze_rfp(file: UploadFile = File(...), model: str = Form(DEFAULT_AG
         temp_input_path = tmp_file.name
 
     try:
+        check_model(model)
+        check_upload(temp_input_path, file_ext)
         # Worker thread: the graph and Excel work are sync and would block every other request.
         return await asyncio.to_thread(_analyze_file, temp_input_path, model, file.filename)
+    except LimitError as e:  # also raised inside the graph (question count)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -383,7 +394,11 @@ async def evaluate_rfp_accuracy(file: UploadFile = File(...), model: str = Form(
         temp_input_path = tmp_file.name
 
     try:
+        check_model(model)
+        check_upload(temp_input_path, file_ext)
         return await asyncio.to_thread(_evaluate_file, temp_input_path, model, file.filename)
+    except LimitError as e:  # also raised inside the graph (question count)
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:

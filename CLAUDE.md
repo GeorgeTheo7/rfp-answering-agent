@@ -26,7 +26,8 @@ Backend: FastAPI + LangGraph (Python 3.12). Frontend: React/TanStack (Lovable-ge
 
 ## Map
 - `Backend/app/`: package; imports are `from app.x import ...` (run from `Backend/`). `data/`, `chroma_db/`, `tests/` stay in `Backend/`.
-- `Backend/app/config.py`: paths (BASE_DIR = Backend/, CHROMA_DIR, DATA_DIR), COLLECTION_NAME, EXCEL_EXTENSIONS, FAIL_MSG, OLD_FAIL_MSG_PREFIX, RETRIEVAL_SEARCH_TYPE (similarity | mmr), RETRIEVAL_K, RETRIEVAL_FETCH_K + MMR_LAMBDA (mmr only), DEFAULT_AGENT_MODEL (gpt-6-luna; API + UI default), MODEL_SETTINGS (per-model ChatOpenAI settings for agent + judge, via `nodes.chat_model`; gpt-6-luna = effort low, no temperature), JUDGE_MODEL (evaluator judge only; default gpt-6-luna: alias, no dated snapshot), MODEL_PRICING, COST_DECIMALS. No side effects.
+- `Backend/app/config.py`: paths (BASE_DIR = Backend/, CHROMA_DIR, DATA_DIR), COLLECTION_NAME, EXCEL_EXTENSIONS, FAIL_MSG, OLD_FAIL_MSG_PREFIX, RETRIEVAL_SEARCH_TYPE (similarity | mmr), RETRIEVAL_K, RETRIEVAL_FETCH_K + MMR_LAMBDA (mmr only), DEFAULT_AGENT_MODEL (gpt-6-luna; API + UI default), MODEL_SETTINGS (per-model ChatOpenAI settings for agent + judge, via `nodes.chat_model`; gpt-6-luna = effort low, no temperature), JUDGE_MODEL (evaluator judge only; default gpt-6-luna: alias, no dated snapshot), MODEL_PRICING, COST_DECIMALS, MAX_CONCURRENCY (graph max_concurrency + evaluator judge pool), demo settings from env (unset/empty → default): DEMO_MODE (off; read-only KB + limits), MAX_UPLOAD_MB (5), MAX_PDF_PAGES (20), MAX_QUESTIONS (55), DEMO_MODELS (comma list; default DEFAULT_AGENT_MODEL). No side effects beyond reading env.
+- `Backend/app/limits.py`: demo limits + model allow-list (`LimitError` → HTTP 400): `check_model` (always), `check_upload` (size, PDF pages; before the graph), `check_question_count` (end of `extract_questions_node`), `allowed_models` (also in `GET /api/config`).
 - `Backend/app/store.py`: lazy Chroma singleton, `get_vectorstore()`.
 - `Backend/app/main.py`: FastAPI app, lifespan (startup ingest of new files in data/), CORS, includes `api.router`.
 - `Backend/app/ingestion.py`: loaders, shared `ingest()` (per-file writes; failed write raises `IngestWriteError`), `ingest_local_directory`.
@@ -36,7 +37,7 @@ Backend: FastAPI + LangGraph (Python 3.12). Frontend: React/TanStack (Lovable-ge
 - `Backend/app/agent/nodes.py`: node functions (extract, report; question subgraph: retrieve, draft, validate_citations (+ pure `parse_citations`), judge, give_up (keeps last draft as needs_review), conflict_audit, classify_status, finalize + routers), cost.
 - `Backend/app/agent/graph.py`: builds `question_graph`, `answer_question_node` (try/except + cost callback around it), `rfp_graph`.
 - `Backend/app/evaluation.py`: LLM judge + categorical eval.
-- `Backend/app/api.py`: endpoints on `router` (upload calls `ingest()`; 502 on `IngestWriteError`; `.xls` → 400; preview rows from `final_answers`), evaluator endpoint.
+- `Backend/app/api.py`: endpoints on `router` (upload calls `ingest()`; 502 on `IngestWriteError`; `.xls` → 400; preview rows from `final_answers`; KB writes → 403 in demo mode; `GET /api/config` for the UI: demo flag, limits, allowed models; `/api/health`), evaluator endpoint.
 - `Frontend/src/components/`: RfpSolver, KnowledgeBase, AccuracyEvaluator. Backend URL hardcoded. `routeTree.gen.ts` generated, don't edit.
 
 ## Contracts (change one place → update all)

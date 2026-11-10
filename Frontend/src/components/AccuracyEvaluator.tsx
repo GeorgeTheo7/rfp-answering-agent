@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { API_BASE, errorMessage } from "@/lib/api";
+import { API_BASE, demoLimitsHint, errorMessage, useAppConfig, useValidModel } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Loader2, Bot, AlertCircle, Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -71,6 +71,8 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
   });
 
   const [isOpenAiAvailable, setIsOpenAiAvailable] = useState(true);
+  const appConfig = useAppConfig();
+  const models = useValidModel(appConfig, selectedModel, setSelectedModel);
 
   // Save to sessionStorage whenever the data changes
   useEffect(() => {
@@ -90,12 +92,6 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
       .then((data) => setIsOpenAiAvailable(data.openai))
       .catch(() => setIsOpenAiAvailable(false));
   }, []);
-
-  const AI_MODELS = [
-    { id: "gpt-4o-mini", name: "GPT-4o Mini", cost: "Low", speed: "Fast" },
-    { id: "gpt-5-mini", name: "GPT-5 Mini", cost: "Medium", speed: "Fast" },
-    { id: "gpt-6-luna", name: "GPT-6 Luna", cost: "Low", speed: "Medium" },
-  ];
 
   const handleEvaluate = async () => {
     if (files.length === 0) return;
@@ -188,6 +184,10 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
               </p>
             </div>
 
+            {appConfig.demo_mode && (
+              <p className="text-sm text-muted-foreground">{demoLimitsHint(appConfig, false)}</p>
+            )}
+
             <DropZone
               title="Drop your Ground Truth Excel here"
               subtitle="Requires .xlsx or .xlsm files"
@@ -207,7 +207,7 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
                 disabled={!isOpenAiAvailable}
                 className={`w-full h-10 rounded-md border border-input px-3 py-2 text-sm focus:ring-2 focus:ring-primary/50 outline-none transition-all shadow-sm cursor-pointer ${!isOpenAiAvailable ? "bg-muted text-muted-foreground italic cursor-not-allowed" : "bg-background text-foreground"}`}
               >
-                {AI_MODELS.map((m) => (
+                {models.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}{" "}
                     {isOpenAiAvailable
