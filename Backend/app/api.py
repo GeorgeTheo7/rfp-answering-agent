@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import base64
 import pandas as pd
+from concurrent.futures import ThreadPoolExecutor
 from typing import List, Dict
 
 from fastapi import APIRouter, UploadFile, File, HTTPException, Form
@@ -16,7 +17,7 @@ from app.agent.schemas import Answer, Status
 from app.evaluation import run_info, run_llm_judge, categorical_eval
 from app.excel_io import REVIEW_NOTE_COL, add_answer_status_column, with_run_info, detect_status_columns, create_formatted_excel_bytes, answer_statuses, build_answer_sheets, read_sheets, parse_question_id, find_id_column, find_question_column
 from app import config
-from app.config import COST_DECIMALS, DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS
+from app.config import COST_DECIMALS, DEFAULT_AGENT_MODEL, EXCEL_EXTENSIONS, MAX_CONCURRENCY
 from app.store import get_vectorstore
 from app.ingestion import ingest, IngestWriteError
 
@@ -126,7 +127,7 @@ def delete_document(filename: str):
     return {"message": "Not found"}
 
 def _analyze_file(temp_input_path: str, model: str, filename: str) -> dict:
-    final_state = rfp_graph.invoke({"rfp_input_path": temp_input_path, "selected_model": model}, config={"max_concurrency": 5})
+    final_state = rfp_graph.invoke({"rfp_input_path": temp_input_path, "selected_model": model}, config={"max_concurrency": MAX_CONCURRENCY})
     answers = final_state["final_answers"]
     preview_data = [_preview_row(ans) for ans in answers]
 
@@ -220,7 +221,7 @@ def export_edited_excel(req: ExportRequest):
 # ==========================================
 def _evaluate_file(temp_input_path: str, model: str, filename: str) -> dict:
     # 1. Run the normal RAG graph to get the Generated Answers
-    final_state = rfp_graph.invoke({"rfp_input_path": temp_input_path, "selected_model": model}, config={"max_concurrency": 5})
+    final_state = rfp_graph.invoke({"rfp_input_path": temp_input_path, "selected_model": model}, config={"max_concurrency": MAX_CONCURRENCY})
     answers = final_state["final_answers"]
     by_row = {(ans.sheet, ans.row_index): ans for ans in answers}
     sheets = {name: sheet.fillna("") for name, sheet in build_answer_sheets(temp_input_path, answers).items()}
@@ -267,11 +268,9 @@ def _evaluate_file(temp_input_path: str, model: str, filename: str) -> dict:
             else:
                 gt_list.extend([""] * len(odf))
 
-    results = []
-    total_score = 0
-    valid_rows = 0
-
-    # 3. Evaluate each row
+    # 3. Evaluate each row: collect in row order, run the LLM judges in parallel, write back in row order.
+    rows = []        # (df, index, row_id, q_text, expected_text, generated_text, eval_result or None)
+    judge_jobs = []  # (position in rows, q_text, generated_text, expected_text)
     pos = -1  # position across all sheets (row-aligned with gt_list)
     for sheet_name, df in sheets.items():
         # Add the new columns to the DataFrame
@@ -303,35 +302,50 @@ def _evaluate_file(temp_input_path: str, model: str, filename: str) -> dict:
                         gen_value = vv
                         break
                 eval_result = categorical_eval(gen_value, expected_text, expected_allowed)
-                eval_cost = 0.0
                 # Restore the ground truth in the expected column (the graph had overwritten it)
                 df.at[index, exp_a_col] = expected_text
             else:
-                # Semantic judge (as before)
-                eval_result, eval_cost = run_llm_judge(q_text, generated_text, expected_text)
-            
-            df.at[index, "LLM Score"] = eval_result.score
-            df.at[index, "LLM Reasoning"] = eval_result.reasoning
+                # Semantic judge: filled by the judge pool below
+                eval_result = None
+                judge_jobs.append((len(rows), q_text, generated_text, expected_text))
+            rows.append((df, index, row_id, q_text, expected_text, generated_text, eval_result))
 
-            # Take the previous cost and add the evaluation cost
-            current_cost = df.at[index, "Cost ($)"] if "Cost ($)" in df.columns and pd.notna(df.at[index, "Cost ($)"]) else 0.0
-            df.at[index, "Cost ($)"] = float(current_cost) + eval_cost
+    # Each judge call opens its own cost callback (get_openai_callback) inside its worker thread and returns
+    # its cost, so no context copying is needed. run_llm_judge never raises (errors -> score 0).
+    costs = [0.0] * len(rows)
+    if judge_jobs:
+        with ThreadPoolExecutor(max_workers=MAX_CONCURRENCY) as pool:
+            judged = list(pool.map(lambda job: run_llm_judge(*job[1:]), judge_jobs))  # map keeps input order
+        for (i, *_), (eval_result, eval_cost) in zip(judge_jobs, judged):
+            rows[i] = rows[i][:-1] + (eval_result,)
+            costs[i] = eval_cost
 
-            results.append({
-                "id": row_id,
-                "question": q_text,
-                "expected": expected_text,
-                "generated": generated_text,
-                "score": eval_result.score,
-                "reasoning": eval_result.reasoning
-            })
-            
-            # --- [EXCLUSION LOGIC] ---
-            # Check whether the Expected Answer contains the fail message (old or new wording)
-            # Only count it towards Accuracy if it does NOT
-            if not is_fail_text(expected_text):
-                total_score += eval_result.score
-                valid_rows += 1
+    results = []
+    total_score = 0
+    valid_rows = 0
+    for (df, index, row_id, q_text, expected_text, generated_text, eval_result), eval_cost in zip(rows, costs):
+        df.at[index, "LLM Score"] = eval_result.score
+        df.at[index, "LLM Reasoning"] = eval_result.reasoning
+
+        # Take the previous cost and add the evaluation cost
+        current_cost = df.at[index, "Cost ($)"] if "Cost ($)" in df.columns and pd.notna(df.at[index, "Cost ($)"]) else 0.0
+        df.at[index, "Cost ($)"] = float(current_cost) + eval_cost
+
+        results.append({
+            "id": row_id,
+            "question": q_text,
+            "expected": expected_text,
+            "generated": generated_text,
+            "score": eval_result.score,
+            "reasoning": eval_result.reasoning
+        })
+
+        # --- [EXCLUSION LOGIC] ---
+        # Check whether the Expected Answer contains the fail message (old or new wording)
+        # Only count it towards Accuracy if it does NOT
+        if not is_fail_text(expected_text):
+            total_score += eval_result.score
+            valid_rows += 1
 
     overall_accuracy = round(total_score / valid_rows) if valid_rows > 0 else 0
     # needs_review answers are scored like any other; the count says how many a human should check

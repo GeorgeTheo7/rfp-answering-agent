@@ -37,6 +37,9 @@ MODEL_SETTINGS = {
     "gpt-6-luna": {"reasoning_effort": "low"},
 }
 
+# Parallel LLM work per run: questions in the graph (max_concurrency) and evaluator judge calls.
+MAX_CONCURRENCY = 5
+
 # Agent model when a request names none (the UI pickers default to the same model).
 DEFAULT_AGENT_MODEL = "gpt-6-luna"
 

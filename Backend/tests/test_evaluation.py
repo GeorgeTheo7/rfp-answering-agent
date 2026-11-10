@@ -2,6 +2,8 @@ import base64
 import json
 import io
 import re
+import threading
+import time
 from contextlib import contextmanager
 from types import SimpleNamespace
 
@@ -153,3 +155,50 @@ def test_run_info_records_commit_and_start_time_read_at_import_not_per_request(m
     info = evaluation.run_info("gpt-4o-mini")
     assert (info["Git commit"], info["Backend started"]) == ("loaded1", "2026-11-08T04:36:35+02:00")
     assert info["Timestamp"] != info["Backend started"]
+
+
+def test_evaluate_runs_judges_in_parallel_and_keeps_row_order(tmp_path, monkeypatch):
+    n = 8
+    wb = openpyxl.Workbook()
+    wb.active.append(["ID", "Question", "Expected Answer"])
+    for i in range(n):
+        wb.active.append([f"E-{i}", f"q{i}", f"expected {i}"])
+    path = tmp_path / "eval.xlsx"
+    wb.save(path)
+
+    lock, active, peak, spans = threading.Lock(), [0], [0], []
+
+    def slow_judge(q, generated, expected):
+        start = time.perf_counter()
+        with lock:
+            active[0] += 1
+            peak[0] = max(peak[0], active[0])
+        time.sleep(0.2)
+        with lock:
+            active[0] -= 1
+        i = int(q[1:])
+        time.sleep(0.01 * (n - i))  # later rows finish first: order must not come from completion order
+        spans.append((start, time.perf_counter()))
+        return SimpleNamespace(score=i * 10, reasoning=f"r{i}"), i / 1000
+
+    monkeypatch.setenv("OPENAI_API_KEY", "test")
+    monkeypatch.setattr(api, "rfp_graph", SimpleNamespace(invoke=lambda state, **k: {"final_answers": []}))
+    monkeypatch.setattr(api, "run_llm_judge", slow_judge)
+
+    with open(path, "rb") as f:
+        response = TestClient(app).post("/api/rfp/evaluate", files={"file": ("eval.xlsx", f)})
+
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert [r["id"] for r in results] == [f"E-{i}" for i in range(n)]
+    assert [r["score"] for r in results] == [i * 10 for i in range(n)]
+    assert peak[0] == api.MAX_CONCURRENCY  # bounded, and actually parallel
+    window = max(e for _, e in spans) - min(s for s, _ in spans)
+    assert window < 0.2 * n * 0.6  # sequential would take at least 1.6 s
+    # Score and judge cost written to each row, in row order
+    ws = openpyxl.load_workbook(io.BytesIO(base64.b64decode(response.json()["excel_base64"]))).worksheets[0]
+    header = [c.value for c in ws[1]]
+    score_col, cost_col = header.index("LLM Score"), header.index("Cost ($)")
+    data = list(ws.iter_rows(min_row=2))
+    assert [row[score_col].value for row in data] == [i * 10 for i in range(n)]
+    assert [row[cost_col].value for row in data] == pytest.approx([i / 1000 for i in range(n)])
