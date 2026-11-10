@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import glob
@@ -148,10 +149,18 @@ async def _load_pdf(file_path: str, filename: str) -> List[Document]:
 async def _load_file(file_path: str, filename: str) -> List[Document]:
     file_ext = os.path.splitext(filename)[1].lower()
     if file_ext in EXCEL_EXTENSIONS:
-        return process_excel_for_rag(file_path, filename)
+        return await asyncio.to_thread(process_excel_for_rag, file_path, filename)
     if file_ext == '.pdf':
         return await _load_pdf(file_path, filename)
     raise ValueError(f"Unsupported file type '{file_ext}'")
+
+def _write_file_chunks(filename: str, decision: IngestDecision, chunks: List[Document], ids: List[str]) -> None:
+    """Sync store writes for one file (delete old, embed + add, delete stale); run in a worker thread."""
+    _delete_hashes(filename, decision.delete_before)
+    for start in range(0, len(chunks), WRITE_BATCH_SIZE):
+        end = start + WRITE_BATCH_SIZE
+        get_vectorstore().add_documents(chunks[start:end], ids=ids[start:end])
+    _delete_hashes(filename, decision.delete_after)
 
 async def ingest(file_paths: List[str]) -> IngestResult:
     """Loads, chunks and stores each file that decide_ingest says needs it, writing right
@@ -160,7 +169,7 @@ async def ingest(file_paths: List[str]) -> IngestResult:
     (IngestWriteError): it is usually systemic (bad key, quota), and continuing would
     pay LlamaParse for files that can't be saved."""
     try:
-        store_index = _read_store_index()
+        store_index = await asyncio.to_thread(_read_store_index)
     except Exception as e:
         print(f"[ERROR] Could not read the store, stopping ingestion: {type(e).__name__}: {e}")
         raise IngestWriteError("Could not read the store") from e
@@ -170,7 +179,7 @@ async def ingest(file_paths: List[str]) -> IngestResult:
     for file_path in file_paths:
         filename = os.path.basename(file_path)
         try:
-            content_hash = _hash_file(file_path)
+            content_hash = await asyncio.to_thread(_hash_file, file_path)
         except OSError as e:
             print(f"[ERROR] Could not read '{filename}': {type(e).__name__}: {e}")
             continue
@@ -183,7 +192,7 @@ async def ingest(file_paths: List[str]) -> IngestResult:
             else:
                 print(f"[SYSTEM] Skipped '{filename}': unchanged.")
             try:
-                _delete_hashes(filename, decision.delete_after)
+                await asyncio.to_thread(_delete_hashes, filename, decision.delete_after)
             except Exception as e:
                 print(f"[ERROR] Could not clean up '{filename}', stopping ingestion: {type(e).__name__}: {e}")
                 raise IngestWriteError(f"Could not clean up '{filename}'") from e
@@ -205,11 +214,7 @@ async def ingest(file_paths: List[str]) -> IngestResult:
         ids = [f"{filename}:{content_hash}:{i}" for i in range(len(chunks))]
 
         try:
-            _delete_hashes(filename, decision.delete_before)
-            for start in range(0, len(chunks), WRITE_BATCH_SIZE):
-                end = start + WRITE_BATCH_SIZE
-                get_vectorstore().add_documents(chunks[start:end], ids=ids[start:end])
-            _delete_hashes(filename, decision.delete_after)
+            await asyncio.to_thread(_write_file_chunks, filename, decision, chunks, ids)
         except Exception as e:
             print(f"[ERROR] Could not store '{filename}', stopping ingestion: {type(e).__name__}: {e}")
             raise IngestWriteError(f"Could not store '{filename}'") from e
