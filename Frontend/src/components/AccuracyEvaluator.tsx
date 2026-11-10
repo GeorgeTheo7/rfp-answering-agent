@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Activity, Loader2, Bot, AlertCircle, Download, RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
 
   // Check whether the OpenAI API key is available
   useEffect(() => {
-    fetch("http://localhost:8000/api/providers/status")
+    fetch(`${API_BASE}/providers/status`)
       .then((res) => res.json())
       .then((data) => setIsOpenAiAvailable(data.openai))
       .catch(() => setIsOpenAiAvailable(false));
@@ -107,7 +108,7 @@ export function AccuracyEvaluator({ onProcessingChange }: AccuracyEvaluatorProps
     formData.append("model", selectedModel);
 
     try {
-      const response = await fetch("http://localhost:8000/api/rfp/evaluate", {
+      const response = await fetch(`${API_BASE}/rfp/evaluate`, {
         method: "POST",
         body: formData,
       });

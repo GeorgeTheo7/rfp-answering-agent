@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE } from "@/lib/api";
 import { createFileRoute } from "@tanstack/react-router";
 import { Target, BookOpen, Loader2, Activity } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,7 +20,7 @@ function Index() {
 
   const checkServerStatus = async () => {
     try {
-      const res = await fetch("http://localhost:8000/api/providers/status");
+      const res = await fetch(`${API_BASE}/providers/status`);
       if (res.ok) {
         setIsServerReady(true);
       } else {

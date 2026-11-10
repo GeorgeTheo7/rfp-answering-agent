@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE } from "@/lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { Zap, Loader2, Download, CheckCircle2, RotateCcw, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,7 +80,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
   }, [step, tableData, downloadFilename, selectedModel]);
 
   useEffect(() => {
-    fetch("http://localhost:8000/api/providers/status")
+    fetch(`${API_BASE}/providers/status`)
       .then((res) => res.json())
       .then((data) => setIsOpenAiAvailable(data.openai))
       .catch(() => setIsOpenAiAvailable(false));
@@ -102,7 +103,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
     formData.append("model", selectedModel);
 
     try {
-      const response = await fetch("http://localhost:8000/api/rfp/analyze", {
+      const response = await fetch(`${API_BASE}/rfp/analyze`, {
         method: "POST",
         body: formData,
       });
@@ -128,7 +129,7 @@ export function RfpSolver({ onProcessingChange }: RfpSolverProps) {
   const handleDownloadEdits = async () => {
     setIsDownloading(true);
     try {
-      const response = await fetch("http://localhost:8000/api/rfp/export_edits", {
+      const response = await fetch(`${API_BASE}/rfp/export_edits`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ rows: tableData, filename: downloadFilename }),

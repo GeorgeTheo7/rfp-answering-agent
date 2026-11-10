@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { API_BASE } from "@/lib/api";
 import { motion } from "framer-motion";
 import { RefreshCw, Trash2, FileText, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -31,7 +32,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
 
   const fetchDocuments = async (isInit = false) => {
     try {
-      const res = await fetch("http://localhost:8000/api/documents");
+      const res = await fetch(`${API_BASE}/documents`);
 
       if (res.ok) {
         const data = await res.json();
@@ -71,7 +72,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
     });
 
     try {
-      const res = await fetch("http://localhost:8000/api/documents/upload", {
+      const res = await fetch(`${API_BASE}/documents/upload`, {
         method: "POST",
         body: formData,
       });
@@ -101,7 +102,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
       return;
 
     try {
-      const res = await fetch(`http://localhost:8000/api/documents/${filename}`, {
+      const res = await fetch(`${API_BASE}/documents/${filename}`, {
         method: "DELETE",
       });
 
@@ -118,7 +119,7 @@ export function KnowledgeBase({ onSyncStateChange }: KnowledgeBaseProps) {
     if (!confirm("Are you sure you want to Delete all the files?")) return;
 
     try {
-      const res = await fetch("http://localhost:8000/api/documents/all", {
+      const res = await fetch(`${API_BASE}/documents/all`, {
         method: "DELETE",
       });
 
