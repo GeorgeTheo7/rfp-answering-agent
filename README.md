@@ -1,8 +1,18 @@
 # RFP Answering Agent
 
-Answers RFP and security questionnaires (Excel or PDF) from a knowledge base of company policy PDFs and past RFP answer spreadsheets.
-Each question goes through a LangGraph subgraph: retrieve → draft with inline citations → check citations in code → LLM judge → redraft or hand off to a human.
-The output is the original workbook with answers, sources, dropdown values and a status colour per row (red = not found/error, yellow = needs review).
+An AI agent that fills in RFP and security questionnaires (Excel or PDF) from a company's policy PDFs and past answers. Every answer is cited, checked, and sent to a human when the agent is not sure.
+
+**[Live demo](https://ca-rfp-frontend.lemonmushroom-68fd4a9a.swedencentral.azurecontainerapps.io/)** · [Evaluation](#evaluation) · [Architecture](#architecture) · [Engineering notes](#engineering-notes) · [Run it](#run-it)
+
+![Demo: upload a questionnaire, review the cited answers, download the filled workbook](docs/demo.gif)
+
+| 89.9 / 100 | 6 / 6 | 44 / 46 | 273 tests |
+|:---:|:---:|:---:|:---:|
+| answer score on a 52-question eval set (88.7 on the held-out split; one run) | unanswerable questions refused or sent to a human, none guessed | answerable questions whose supporting fact is retrieved | run before every automatic deploy to Azure |
+
+**How it works:** for each question, retrieve → draft with inline citations → check the citations in code → LLM judge → redraft (max 3 drafts) or flag for human review. The output is the original workbook with answers, sources and a status colour per row.
+
+**Stack:** Python 3.12, FastAPI, LangGraph, LangChain, Chroma, OpenAI (`gpt-6-luna` default, `gpt-4o-mini` selectable; `text-embedding-3-small`), LlamaParse, LangSmith tracing (optional), React/TanStack, nginx, Docker Compose, Azure Container Apps, GHCR, GitHub Actions (CI/CD, OIDC).
 
 Demo data: LogistiComp is a fictional company; all documents in `Backend/data` were written for this demo.
 
@@ -21,14 +31,6 @@ What to expect:
 - **Read-only knowledge base:** upload and delete are disabled.
 
 ![UI screenshot](docs/screenshot.png)
-
-**Highlights**
-- **Agentic RAG with checks in code.** Per question: retrieve → draft with inline citations → citations checked against the retrieved chunks → LLM judge → redraft with feedback (max 3 drafts) → a human reviews what is still doubtful (`needs_review`) instead of the agent guessing or discarding it.
-- **Eval harness.** 52-question eval set with a dev/held-out split; unanswerable rows scored in code; the LLM judge validated by re-judging stored answers (`eval/rejudge.py`); retrieval fact recall measured without LLM calls (`eval/retrieval_eval.py`: 40 → 44 of 46 after switching from MMR to similarity).
-- **Measured model choice.** gpt-6-luna with an absence safety net scores 89.9 vs 87.3 for gpt-4o-mini (2 runs), costs $0.035 vs $0.048 per run, writes no customer names into answers and sends every unanswerable question to a human. Caveat: one gpt-6-luna run.
-- **Deployed on Azure Container Apps.** [Live demo](#live-demo); every push to main is tested (ruff, 273 pytest tests), built, pushed to GHCR and deployed via OIDC, then checked by a smoke test. Demo limits and scale to zero keep costs bounded. Snapshot tests cover every prompt and LLM-facing schema.
-
-**Stack:** Python 3.12, FastAPI, LangGraph, LangChain, Chroma, OpenAI (`gpt-6-luna` default, `gpt-4o-mini` selectable; `text-embedding-3-small`), LlamaParse for PDFs, LangSmith tracing (optional), React/TanStack frontend, nginx, Docker Compose, Azure Container Apps, GHCR, GitHub Actions (CI/CD, OIDC).
 
 ## Architecture
 
