@@ -6,15 +6,29 @@ The output is the original workbook with answers, sources, dropdown values and a
 
 Demo data: LogistiComp is a fictional company; all documents in `Backend/data` were written for this demo.
 
+## Live demo
+
+**https://ca-rfp-frontend.lemonmushroom-68fd4a9a.swedencentral.azurecontainerapps.io/**
+
+- **RFP Solver:** upload the fictional customer questionnaire [Thornvale Foods - Security and Service Questionnaire.xlsx](eval/Thornvale%20Foods%20-%20Security%20and%20Service%20Questionnaire.xlsx) (22 questions) or the [Thornvale PDF RFP](eval/Thornvale%20Foods%20-%20RFP%20Cloud%20WMS.pdf), review the answers, download the filled workbook.
+- **Accuracy Evaluator:** upload [eval/eval_set_v2.xlsx](eval/eval_set_v2.xlsx) (52 questions with expected answers); the LLM judge scores every answer.
+- **Knowledge Base:** the 12 fictional LogistiComp documents the answers come from.
+
+What to expect:
+- **Cold start:** the app scales to zero, so the first request after a quiet period takes a few seconds.
+- **Run time:** about 45 s for the 22-question Thornvale questionnaire; the 52-question evaluation takes about [TIME]. Every question goes through retrieval, drafting and judging.
+- **Demo limits:** up to 55 questions, 5 MB, 20 PDF pages and 5 runs per hour per visitor (100 per day overall). One model: gpt-6-luna.
+- **Read-only knowledge base:** upload and delete are disabled.
+
 ![UI screenshot](docs/screenshot.png)
 
 **Highlights**
 - **Agentic RAG with checks in code.** Per question: retrieve → draft with inline citations → citations checked against the retrieved chunks → LLM judge → redraft with feedback (max 3 drafts) → a human reviews what is still doubtful (`needs_review`) instead of the agent guessing or discarding it.
 - **Eval harness.** 52-question eval set with a dev/held-out split; unanswerable rows scored in code; the LLM judge validated by re-judging stored answers (`eval/rejudge.py`); retrieval fact recall measured without LLM calls (`eval/retrieval_eval.py`: 40 → 44 of 46 after switching from MMR to similarity).
 - **Measured model choice.** gpt-6-luna with an absence safety net scores 89.9 vs 87.3 for gpt-4o-mini (2 runs), costs $0.035 vs $0.048 per run, writes no customer names into answers and sends every unanswerable question to a human. Caveat: one gpt-6-luna run.
-- **Runs like a service.** Docker Compose (FastAPI backend, nginx frontend), GitHub Actions CI (ruff, 249 pytest tests, both Docker images built), snapshot tests over every prompt and LLM-facing schema.
+- **Deployed on Azure Container Apps.** [Live demo](#live-demo); every push to main is tested (ruff, 273 pytest tests), built, pushed to GHCR and deployed via OIDC, then checked by a smoke test. Demo limits and scale to zero keep costs bounded. Snapshot tests cover every prompt and LLM-facing schema.
 
-**Stack:** Python 3.12, FastAPI, LangGraph, LangChain, Chroma, OpenAI (`gpt-6-luna` default, `gpt-4o-mini` selectable; `text-embedding-3-small`), LlamaParse for PDFs, LangSmith tracing (optional), React/TanStack frontend, Docker Compose, GitHub Actions CI.
+**Stack:** Python 3.12, FastAPI, LangGraph, LangChain, Chroma, OpenAI (`gpt-6-luna` default, `gpt-4o-mini` selectable; `text-embedding-3-small`), LlamaParse for PDFs, LangSmith tracing (optional), React/TanStack frontend, nginx, Docker Compose, Azure Container Apps, GHCR, GitHub Actions (CI/CD, OIDC).
 
 ## Architecture
 
@@ -142,7 +156,60 @@ gpt-6-luna is the default: higher score, cheaper, no customer names in answers, 
 - Rows with an expected "not found" are skipped, so the evaluator can't see an agent that answers questions it shouldn't.
 - One judge model, and the private eval set is small.
 
+## Deployment on Azure
+
+### Architecture on Azure
+
+```mermaid
+flowchart LR
+  user([Browser]) -->|HTTPS| ingress[ACA external ingress]
+  subgraph env["Container Apps environment · Sweden Central · Consumption plan"]
+    ingress --> fe["ca-rfp-frontend<br/>nginx: SPA + /api proxy"]
+    fe -->|"/api/* + X-Real-IP"| be["ca-rfp-backend · internal ingress<br/>FastAPI + LangGraph<br/>baked Chroma snapshot"]
+  end
+  be -->|HTTPS| openai[(OpenAI API)]
+  gh[GitHub Actions] -->|push images| ghcr[(GHCR)]
+  ghcr -.->|pull| fe
+  ghcr -.->|pull| be
+  gh -->|"OIDC · az containerapp update"| env
+```
+
+- **Two container apps** in Sweden Central on the Consumption plan, both scaling to zero with at most 1 replica.
+- **Frontend:** nginx serves the SPA and proxies `/api/*` to the backend, so the browser only ever talks to one origin.
+- **Backend:** internal ingress only, so it's unreachable from the internet.
+- **Knowledge base:** baked into the backend image as a Chroma snapshot, so a new replica starts with no parsing or embedding calls.
+- **Probes:** HTTP startup, readiness and liveness probes on `/api/health`.
+- **Images:** public images in GitHub Container Registry, tagged with the 7-character commit SHA.
+
+### CI/CD
+
+`.github/workflows/ci.yml`. On every push and pull request, `checks` runs and both images are built. Pushing to GHCR and deploying happen only on main, for a push or a manual run (`workflow_dispatch`):
+
+1. **checks:** ruff + pytest, with no LLM or network calls.
+2. **docker:** build both images with a GitHub Actions layer cache, after `checks` passes. On main they're pushed to GHCR; elsewhere they're only built.
+3. **deploy:** `azure/login` via OIDC, then `az containerapp update` for the backend, then the frontend. Each step fails unless the provisioning state is `Succeeded`.
+4. **wait:** both apps must reach a ready latest revision running the image tagged with this commit.
+5. **smoke test:** through the public URL, `/api/health` must return 200 (with retries for a cold start), and `/api/config` must report `demo_mode: true`.
+
+Deploys never overlap (concurrency group). No Azure secret is stored in GitHub:
+- the OIDC federated credential is bound to the main branch;
+- GHCR uses the built-in `GITHUB_TOKEN`;
+- the service principal has Contributor on the app's resource group only.
+
+### Cost safeguards
+
+| Safeguard | Effect |
+|---|---|
+| Scale to zero (Consumption plan) | No compute cost while idle; the price is a few seconds of cold start |
+| Max 1 replica per app | Caps compute; keeps the in-memory rate limiter consistent |
+| Demo limits (`DEMO_MODE`) | 55 questions, 5 MB, 20 PDF pages, one model, 5 runs/hour per IP, 100 runs/day; read-only knowledge base (no LlamaParse or embedding cost) |
+| OpenAI project budget | The demo key belongs to its own OpenAI project, which has a budget |
+| Azure budget alert | Email alert when Azure spend passes the budget (notification only; it doesn't stop resources) |
+| GHCR | Free public images instead of a paid container registry |
+
 ## Engineering notes
+
+### Agent and evaluation
 
 - **A docstring sent to the LLM.** A developer docstring on the Pydantic draft model became the JSON-schema description the model saw. On one question (password length), drafts over-claimed "minimum 8" in 26/26 runs with the docstring and 0/30 without it (runs interleaved). Fix: a comment instead of a docstring, plus snapshot tests over prompts and LLM-facing schemas (`tests/prompt_snapshots/`), so any byte change to what the model sees shows up in review.
 - **Judge contradicting itself.** With the verdict field first, the judge flagged a supported claim as unsupported, and its feedback quoted the context text that supports it. Fix: a `reasoning` field before `has_hallucination`, so the verdict follows the analysis. After the change the same answer was approved.
@@ -151,6 +218,14 @@ gpt-6-luna is the default: higher score, cheaper, no customer names in answers, 
 - **Evaluating the evaluator.** A cap meant to catch answers that contradict an expected Yes/No fired on correct answers. Re-judging the same 52 stored answers with `eval/rejudge.py` (no agent re-run) showed gpt-4o-mini filling `generated_verdict` with "agrees with the expected answer" instead of the answer's own yes/no: 8 false caps, each turning a correct answer into 20. gpt-6-luna, with the field described as "the answer's own yes/no reply, ignoring the expected answer", capped only real contradictions. The same answers judged twice differed by 0.8 points overall.
 - **A wrong answer caused by retrieval, not reasoning.** EV-45 ("How quickly must your suppliers notify you of a security incident?") kept getting "48 hours". The supplier clause (24 hours) was the 5th most similar chunk, but MMR swapped it for a neighbouring chunk, and the other four chunks were all about LogistiComp notifying its own customers within 48 hours. The model answered faithfully from what it was given. With plain similarity retrieval EV-45 scored 100 in all 5 runs (20 before).
 - **Results from a stale backend.** One eval run showed the old judge's behaviour after the code had changed: a second uvicorn process on the same port (Windows allows it) was still serving code from an hour earlier. Every evaluated file now has a "Run info" sheet with agent model, judge model and settings, timestamp, and the git commit and start time read when the backend loaded its code, so a stale server shows up in the file.
+
+### Deployment
+
+- **A blocked event loop.** `/api/health` and every other request hung during an RFP run. Cause: the synchronous `rfp_graph.invoke` ran inside `async def` endpoints. A test with a fake 1 s graph showed health returning after 1.26 s instead of right away. Fix: graph, Excel and ingestion work run in worker threads (`asyncio.to_thread`); the test fails if that step is removed. Starlette's `run_in_threadpool` was tried first, but under `nest_asyncio` it left non-daemon worker threads behind, and the test process never exited. On Azure, the HTTP liveness/readiness probes keep answering every 5 s during a run.
+- **Re-ingesting on every cold start.** Scale to zero with no persistent volume means every new replica starts with an empty vector store. Startup would then re-parse and re-embed all 12 documents (LlamaParse + OpenAI calls, keys required), and uvicorn opens its port only after that work. Fix: a Chroma snapshot (241 chunks, about 4 MB) is committed and baked into the image, so the startup hash check skips every file. `chromadb` is pinned to the snapshot's version, and a test fails if `Backend/data` and the snapshot drift apart.
+- **The 240 s ingress limit.** Container Apps ingress ends HTTP requests after 240 s, and an evaluation is one long request. The 52-question eval set took ~186 s, 76 s of it judge calls made one at a time. Fix: judge calls run in parallel (5, like the graph) and results stay in row order; a test fails if they run sequentially. The run now takes [TIME]. Longer files need background jobs (Roadmap).
+- **Real client IP behind Azure proxies.** The per-IP rate limit has to see the visitor, not a proxy. On a cold start the backend logged an Azure-internal proxy address as the client: X-Forwarded-For can end with an extra Azure hop, and nginx took the rightmost entry. Fix: nginx `realip` trusts the private address ranges, with recursive mode on. It walks X-Forwarded-For from the right, skips trusted hops, and uses the first public address. Entries a client could fake sit to the left of its real IP and are never reached. The backend reads only the `X-Real-IP` header that nginx sets, and the nginx access log shows the raw header for checking.
+- **OIDC subject with immutable IDs.** The first deploy failed at `azure/login` with `AADSTS700213: No matching federated identity record`. Evidence: the login step prints the subject claim GitHub presented, and it contained numeric IDs after the owner and repository names (`repo:<owner>@<id>/<repo>@<id>:ref:refs/heads/main`), while the federated credential expected names only. GitHub includes immutable IDs so a renamed or re-registered account or repository can't match an old trust rule. Fix: set the federated credential's subject to the exact presented claim.
 
 ## Run it
 
@@ -163,7 +238,7 @@ docker compose up --build   # frontend localhost:8080, backend localhost:8000 (/
 docker compose down         # stop
 ```
 
-`Backend/data` and `Backend/chroma_db` are mounted from the host: new files in `data/` are ingested on startup, unchanged ones skipped. Don't run `start.bat` and compose at the same time (same ports, same Chroma store).
+The frontend's nginx proxies `/api` to the backend (`BACKEND_URL`). The backend image contains the knowledge-base snapshot, but compose mounts `Backend/data` and `Backend/chroma_db` from the host, so your local store is used: new files in `data/` are ingested on startup, unchanged ones skipped. Try demo mode locally with `$env:DEMO_MODE="true"; docker compose up --build`; limits can be overridden the same way (e.g. `MAX_QUESTIONS`, `RATE_LIMIT_PER_HOUR`). Don't run `start.bat` and compose at the same time (same ports, same Chroma store).
 
 ### Run locally
 
@@ -189,13 +264,15 @@ Other tools: `eval\run_rfp.py <file>` (any RFP through the pipeline, prints the 
 
 ```
 LICENSE
-.github/workflows/ci.yml   CI: ruff + pytest, Docker builds of backend and frontend
+.github/workflows/ci.yml   CI/CD: ruff + pytest, images to GHCR, deploy to Azure, smoke test
 docker-compose.yml   backend + frontend services
-Backend/Dockerfile   python:3.12-slim, uvicorn on :8000
+Backend/Dockerfile   python:3.12-slim, uvicorn on :8000, baked knowledge-base snapshot
+Backend/kb_snapshot/ Chroma snapshot of Backend/data (drift test in tests/test_kb_snapshot.py)
 Backend/app/
   main.py         FastAPI app, startup ingest, CORS
-  api.py          endpoints (analyze, export edits, upload, evaluate)
-  config.py       paths, retrieval params, FAIL_MSG, pricing (no side effects)
+  api.py          endpoints (analyze, export edits, upload, evaluate, health, config)
+  limits.py       demo limits, model allow-list, per-IP and daily run limiter
+  config.py       paths, retrieval params, FAIL_MSG, pricing, demo settings from env
   store.py        lazy Chroma singleton
   ingestion.py    loaders + shared ingest() with hash dedup
   excel_io.py     column detection, dropdowns, read_sheets, formatted writer
@@ -211,7 +288,8 @@ eval/             eval sets, smoke test, debug runner, Excel comparison, run fil
   rejudge.py         re-judge stored answers with another judge model, no agent re-run
   retrieval_eval.py  fact recall per retriever config, no LLM calls
 Frontend/src/components/   RfpSolver, KnowledgeBase, AccuracyEvaluator
-Frontend/Dockerfile  node build → nginx; nginx.conf serves the SPA shell
+Frontend/Dockerfile  node build → nginx
+Frontend/nginx.conf.template  SPA + /api proxy (BACKEND_URL), real client IP
 docs/SPEC.md      design decisions with evidence, roadmap
 docs/screenshot.png  UI screenshot
 ```
@@ -226,4 +304,4 @@ docs/screenshot.png  UI screenshot
 - **Agent:** Literal schema for dropdown values; validate conflict-audit snippets in code.
 - **Ingestion:** skip past-RFP rows whose answer is a fail message; use real header rows for questionnaire columns.
 - **Tests:** graph integration tests with mocked LLMs.
-- **Infra:** streaming progress / background jobs, auth, configurable backend URL; Azure deployment (Container Apps), CD from CI.
+- **Infra:** background jobs with progress (runs longer than the 240 s ingress limit); auth; remove nest_asyncio (no longer needed; would allow uvloop); rate limits are in-memory per replica, so scaling beyond one replica would need a shared store such as Redis.
